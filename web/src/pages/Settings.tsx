@@ -18,6 +18,8 @@ type PlexLinkState =
   | { phase: "waiting"; code: string; pinId: number }
   | { phase: "error"; message: string };
 
+const PLEX_LINK_TIMEOUT_MS = 10 * 60 * 1000;
+
 function CredentialForm({
   title,
   description,
@@ -145,7 +147,16 @@ export default function Settings() {
       const { pinId, code } = await startPlexLink();
       setPlexLink({ phase: "waiting", code, pinId });
 
+      // Plex pins expire server-side anyway, but don't poll plex.tv forever if someone
+      // starts linking and then walks away without ever finishing the plex.tv/link step.
+      const deadline = Date.now() + PLEX_LINK_TIMEOUT_MS;
+
       pollRef.current = window.setInterval(async () => {
+        if (Date.now() > deadline) {
+          if (pollRef.current) window.clearInterval(pollRef.current);
+          setPlexLink({ phase: "error", message: "Link request timed out. Try again." });
+          return;
+        }
         try {
           const result = await pollPlexLink(pinId);
           if (result.linked) {
