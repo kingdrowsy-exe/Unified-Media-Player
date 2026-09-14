@@ -22,7 +22,7 @@ function normalizeTitle(title: string): string {
     .trim();
 }
 
-function matchKey(title: string, year?: number): string {
+export function matchKey(title: string, year?: number): string {
   return `${normalizeTitle(title)}::${year ?? ""}`;
 }
 

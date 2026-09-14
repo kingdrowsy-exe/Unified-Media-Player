@@ -225,6 +225,16 @@ a {
   background: #fff;
 }
 
+.hero-unowned {
+  display: inline-block;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
 /* ---------- Shelves ---------- */
 
 .shelf {
@@ -269,6 +279,25 @@ a {
   cursor: pointer;
   scroll-snap-align: start;
   outline: none;
+}
+
+.tile-unowned {
+  cursor: default;
+}
+
+.tile-unowned .tile-art {
+  opacity: 0.45;
+}
+
+.tile-unowned:hover .tile-art,
+.tile-unowned:focus-visible .tile-art {
+  transform: none;
+  box-shadow: none;
+}
+
+.badge-unowned {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
 }
 
 .tile-art {
@@ -965,6 +994,10 @@ a {
 
 .settings-card-xtream {
   border-left-color: var(--accent-2);
+}
+
+.settings-card-tmdb {
+  border-left-color: #01d277;
 }
 
 .settings-card-header {

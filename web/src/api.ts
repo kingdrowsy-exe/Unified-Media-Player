@@ -29,7 +29,19 @@ export interface SettingsStatus {
   plex: boolean;
   silo: boolean;
   xtream: boolean;
+  tmdb: boolean;
   plexServerName?: string;
+}
+
+export interface PopularItem {
+  id: string;
+  title: string;
+  year?: number;
+  type: "movie" | "show";
+  poster?: string;
+  genre?: string;
+  ratingPercent?: number;
+  sources: { source: "plex" | "silo"; id: string }[];
 }
 
 export class ApiError extends Error {
@@ -102,6 +114,18 @@ export function streamUrlFor(source: "plex" | "silo" | "live", id: string | numb
 
 export function fetchSettingsStatus(): Promise<SettingsStatus> {
   return getJson("/api/settings/status");
+}
+
+export function fetchPopular(): Promise<{ movies: PopularItem[]; shows: PopularItem[]; configured: boolean }> {
+  return getJson("/api/popular");
+}
+
+export function saveTmdb(accessToken: string): Promise<{ ok: true }> {
+  return postJson("/api/settings/tmdb", { accessToken });
+}
+
+export function disconnectTmdb(): Promise<{ ok: true }> {
+  return deleteJson("/api/settings/tmdb");
 }
 
 export function saveSilo(baseUrl: string, username: string, password: string): Promise<{ ok: true }> {

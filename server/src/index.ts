@@ -9,6 +9,7 @@ import { onDemandRoutes } from "./routes/ondemand.js";
 import { liveRoutes } from "./routes/live.js";
 import { streamRoutes } from "./routes/stream.js";
 import { settingsRoutes } from "./routes/settings.js";
+import { popularRoutes } from "./routes/popular.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,6 +29,7 @@ async function main() {
 
   await app.register(settingsRoutes);
   await app.register(onDemandRoutes);
+  await app.register(popularRoutes);
   await app.register(liveRoutes);
   await app.register(streamRoutes);
 

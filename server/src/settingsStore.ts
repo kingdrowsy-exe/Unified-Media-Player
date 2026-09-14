@@ -24,10 +24,15 @@ export interface XtreamSettings {
   password: string;
 }
 
+export interface TmdbSettings {
+  accessToken: string;
+}
+
 interface Settings {
   plex?: PlexSettings;
   silo?: SiloSettings;
   xtream?: XtreamSettings;
+  tmdb?: TmdbSettings;
 }
 
 let cache: Settings | null = null;
@@ -81,19 +86,31 @@ export const settingsStore = {
     delete load().xtream;
     persist();
   },
+  getTmdb(): TmdbSettings | undefined {
+    return load().tmdb;
+  },
+  setTmdb(tmdb: TmdbSettings) {
+    load().tmdb = tmdb;
+    persist();
+  },
+  clearTmdb() {
+    delete load().tmdb;
+    persist();
+  },
   status() {
     const s = load();
     return {
       plex: Boolean(s.plex),
       silo: Boolean(s.silo),
       xtream: Boolean(s.xtream),
+      tmdb: Boolean(s.tmdb),
       plexServerName: s.plex?.serverName,
     };
   },
 };
 
 export class NotConfiguredError extends Error {
-  constructor(public service: "plex" | "silo" | "xtream") {
+  constructor(public service: "plex" | "silo" | "xtream" | "tmdb") {
     super(`${service} is not configured yet`);
   }
 }

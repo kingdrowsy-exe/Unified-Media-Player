@@ -3,10 +3,12 @@ import {
   SettingsStatus,
   disconnectPlex,
   disconnectSilo,
+  disconnectTmdb,
   disconnectXtream,
   fetchSettingsStatus,
   pollPlexLink,
   saveSilo,
+  saveTmdb,
   saveXtream,
   startPlexLink,
 } from "../api.js";
@@ -73,6 +75,49 @@ function CredentialForm({
       {error && <div className="settings-error">{error}</div>}
       <button type="submit" disabled={saving}>
         {saving ? "Connecting…" : `Log in to ${title}`}
+      </button>
+    </form>
+  );
+}
+
+function TokenForm({
+  description,
+  placeholder,
+  buttonLabel,
+  onSubmit,
+}: {
+  description: string;
+  placeholder: string;
+  buttonLabel: string;
+  onSubmit: (token: string) => Promise<void>;
+}) {
+  const [token, setToken] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await onSubmit(token);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="settings-form" onSubmit={handleSubmit}>
+      <p className="settings-desc">{description}</p>
+      <label>
+        API Read Access Token
+        <input type="text" placeholder={placeholder} value={token} onChange={(e) => setToken(e.target.value)} required />
+      </label>
+      {error && <div className="settings-error">{error}</div>}
+      <button type="submit" disabled={saving}>
+        {saving ? "Connecting…" : buttonLabel}
       </button>
     </form>
   );
@@ -205,6 +250,31 @@ export default function Settings() {
             description="Log in with the credentials your IPTV provider gave you."
             onSubmit={async (baseUrl, username, password) => {
               await saveXtream(baseUrl, username, password);
+              refreshStatus();
+            }}
+          />
+        )}
+      </section>
+
+      <section className="settings-card settings-card-tmdb">
+        <div className="settings-card-header">
+          <h2>TMDB</h2>
+          {status.tmdb && <span className="badge connected">Connected</span>}
+        </div>
+        {status.tmdb ? (
+          <>
+            <p className="settings-desc">Powers the Popular Movies and Popular Shows shelves on On Demand.</p>
+            <button className="secondary" onClick={() => disconnectTmdb().then(refreshStatus)}>
+              Disconnect
+            </button>
+          </>
+        ) : (
+          <TokenForm
+            description="Paste your TMDB API Read Access Token (free at themoviedb.org/settings/api) to power the Popular Movies and Popular Shows shelves."
+            placeholder="eyJhbGciOi..."
+            buttonLabel="Connect TMDB"
+            onSubmit={async (token) => {
+              await saveTmdb(token);
               refreshStatus();
             }}
           />

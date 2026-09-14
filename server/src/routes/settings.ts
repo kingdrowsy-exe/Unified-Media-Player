@@ -41,6 +41,16 @@ async function validateXtream(baseUrl: string, username: string, password: strin
   }
 }
 
+async function validateTmdb(accessToken: string) {
+  const res = await fetch("https://api.themoviedb.org/3/authentication", {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+  });
+  const data = (await res.json().catch(() => ({}))) as { success?: boolean };
+  if (!res.ok || !data.success) {
+    throw new Error("TMDB login failed. Check your API Read Access Token.");
+  }
+}
+
 export async function settingsRoutes(app: FastifyInstance) {
   app.get("/api/settings/status", async () => {
     return settingsStore.status();
@@ -132,6 +142,27 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.delete("/api/settings/plex", async () => {
     settingsStore.clearPlex();
     bustCache("ondemand:");
+    return { ok: true };
+  });
+
+  app.post("/api/settings/tmdb", async (request, reply) => {
+    const { accessToken } = request.body as { accessToken?: string };
+    if (!accessToken) {
+      return reply.code(400).send({ error: "accessToken is required" });
+    }
+    try {
+      await validateTmdb(accessToken);
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
+    settingsStore.setTmdb({ accessToken });
+    bustCache("popular:");
+    return { ok: true };
+  });
+
+  app.delete("/api/settings/tmdb", async () => {
+    settingsStore.clearTmdb();
+    bustCache("popular:");
     return { ok: true };
   });
 }

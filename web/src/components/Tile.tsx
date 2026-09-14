@@ -5,6 +5,7 @@ interface TileProps {
   ratingPercent?: number;
   year?: number;
   badges?: string[];
+  owned?: boolean;
   shape?: "poster" | "wide";
   onClick: () => void;
 }
@@ -16,6 +17,7 @@ export default function Tile({
   ratingPercent,
   year,
   badges,
+  owned = true,
   shape = "poster",
   onClick,
 }: TileProps) {
@@ -24,7 +26,7 @@ export default function Tile({
   if (year) metaParts.push(String(year));
 
   return (
-    <div className="tile" onClick={onClick} tabIndex={0}>
+    <div className={`tile ${owned ? "" : "tile-unowned"}`} onClick={onClick} tabIndex={0}>
       <div className={`tile-art ${shape}`}>
         {image ? <img src={image} alt="" loading="lazy" /> : <div className="tile-art-empty" />}
       </div>
@@ -36,14 +38,21 @@ export default function Tile({
         </div>
       )}
       <div className="tile-title">{title}</div>
-      {badges && badges.length > 0 && (
+      {!owned ? (
         <div className="tile-subtitle">
-          {badges.map((b) => (
-            <span className={`badge badge-${b}`} key={b}>
-              {b}
-            </span>
-          ))}
+          <span className="badge badge-unowned">Not in library</span>
         </div>
+      ) : (
+        badges &&
+        badges.length > 0 && (
+          <div className="tile-subtitle">
+            {badges.map((b) => (
+              <span className={`badge badge-${b}`} key={b}>
+                {b}
+              </span>
+            ))}
+          </div>
+        )
       )}
     </div>
   );
