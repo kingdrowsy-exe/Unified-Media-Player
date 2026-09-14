@@ -360,6 +360,39 @@ a {
   display: none;
 }
 
+.shelf-pager {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: -12px;
+}
+
+.shelf-pager-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.shelf-pager-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.shelf-pager-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 /* ---------- Tiles ---------- */
 
 .tile {
