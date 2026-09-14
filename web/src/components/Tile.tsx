@@ -1,0 +1,50 @@
+interface TileProps {
+  image?: string;
+  title: string;
+  genre?: string;
+  ratingPercent?: number;
+  year?: number;
+  badges?: string[];
+  shape?: "poster" | "wide";
+  onClick: () => void;
+}
+
+export default function Tile({
+  image,
+  title,
+  genre,
+  ratingPercent,
+  year,
+  badges,
+  shape = "poster",
+  onClick,
+}: TileProps) {
+  const metaParts: string[] = [];
+  if (genre) metaParts.push(genre);
+  if (year) metaParts.push(String(year));
+
+  return (
+    <div className="tile" onClick={onClick} tabIndex={0}>
+      <div className={`tile-art ${shape}`}>
+        {image ? <img src={image} alt="" loading="lazy" /> : <div className="tile-art-empty" />}
+      </div>
+      {(metaParts.length > 0 || ratingPercent !== undefined) && (
+        <div className="tile-meta">
+          {metaParts.join(" • ")}
+          {metaParts.length > 0 && ratingPercent !== undefined && " • "}
+          {ratingPercent !== undefined && <span className="tile-rating">★ {ratingPercent}%</span>}
+        </div>
+      )}
+      <div className="tile-title">{title}</div>
+      {badges && badges.length > 0 && (
+        <div className="tile-subtitle">
+          {badges.map((b) => (
+            <span className="badge" key={b}>
+              {b}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

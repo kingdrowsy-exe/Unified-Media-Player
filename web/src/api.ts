@@ -1,0 +1,135 @@
+export interface MergedItem {
+  id: string;
+  source: "plex" | "silo";
+  title: string;
+  year?: number;
+  type: "movie" | "show";
+  poster?: string;
+  genre?: string;
+  ratingPercent?: number;
+  sources: { source: "plex" | "silo"; id: string }[];
+}
+
+export interface Channel {
+  id: number;
+  name: string;
+  icon?: string;
+  category: string;
+}
+
+export interface EpgListing {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  description?: string;
+}
+
+export interface SettingsStatus {
+  plex: boolean;
+  silo: boolean;
+  xtream: boolean;
+  plexServerName?: string;
+}
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public body: { error?: string; service?: string; message?: string },
+  ) {
+    super(body.message ?? body.error ?? `Request failed with status ${status}`);
+  }
+}
+
+async function parseBody(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new ApiError(res.status, await parseBody(res));
+  }
+  return (await res.json()) as T;
+}
+
+async function postJson<T>(url: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, await parseBody(res));
+  }
+  return (await res.json()) as T;
+}
+
+async function deleteJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { method: "DELETE" });
+  if (!res.ok) {
+    throw new ApiError(res.status, await parseBody(res));
+  }
+  return (await res.json()) as T;
+}
+
+export function fetchOnDemand(
+  params: { search?: string; source?: string },
+): Promise<{ items: MergedItem[]; sources: { plex: boolean; silo: boolean } }> {
+  const url = new URL("/api/ondemand", window.location.origin);
+  if (params.search) url.searchParams.set("search", params.search);
+  if (params.source) url.searchParams.set("source", params.source);
+  return getJson(url.toString());
+}
+
+export function fetchChannels(): Promise<{ categories: string[]; channels: Channel[] }> {
+  return getJson("/api/live/channels");
+}
+
+export function fetchEpg(streamId: number): Promise<{ listings: EpgListing[] }> {
+  const url = new URL("/api/live/epg", window.location.origin);
+  url.searchParams.set("streamId", String(streamId));
+  return getJson(url.toString());
+}
+
+export function streamUrlFor(source: "plex" | "silo" | "live", id: string | number): string {
+  return `/api/stream/${source}/${id}`;
+}
+
+export function fetchSettingsStatus(): Promise<SettingsStatus> {
+  return getJson("/api/settings/status");
+}
+
+export function saveSilo(baseUrl: string, username: string, password: string): Promise<{ ok: true }> {
+  return postJson("/api/settings/silo", { baseUrl, username, password });
+}
+
+export function saveXtream(baseUrl: string, username: string, password: string): Promise<{ ok: true }> {
+  return postJson("/api/settings/xtream", { baseUrl, username, password });
+}
+
+export function disconnectSilo(): Promise<{ ok: true }> {
+  return deleteJson("/api/settings/silo");
+}
+
+export function disconnectXtream(): Promise<{ ok: true }> {
+  return deleteJson("/api/settings/xtream");
+}
+
+export function disconnectPlex(): Promise<{ ok: true }> {
+  return deleteJson("/api/settings/plex");
+}
+
+export function startPlexLink(): Promise<{ pinId: number; code: string; linkUrl: string }> {
+  return postJson("/api/settings/plex/link/start");
+}
+
+export function pollPlexLink(pinId: number): Promise<{ linked: boolean; serverName?: string }> {
+  const url = new URL("/api/settings/plex/link/status", window.location.origin);
+  url.searchParams.set("pinId", String(pinId));
+  return getJson(url.toString());
+}
