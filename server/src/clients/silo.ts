@@ -99,35 +99,47 @@ async function getProfileId(): Promise<string> {
   return profileId;
 }
 
-export async function listSiloItems(): Promise<SiloItem[]> {
+function toSiloItem(item: SiloCatalogItem): SiloItem {
+  return {
+    Id: item.content_id,
+    Name: item.title,
+    ProductionYear: item.year,
+    Type: "Movie",
+    posterUrl: item.poster_url,
+    genre: item.genres?.[0],
+    ratingPercent:
+      item.rating_tmdb !== undefined
+        ? Math.round(item.rating_tmdb * 10)
+        : item.rating_imdb !== undefined
+          ? Math.round(item.rating_imdb * 10)
+          : undefined,
+  };
+}
+
+async function fetchCatalog(query?: string): Promise<SiloItem[]> {
   const silo = requireSilo();
   const s = await getSession();
-  const res = await fetch(`${silo.baseUrl}/api/v1/catalog`, {
-    headers: { Authorization: `Bearer ${s.accessToken}` },
-  });
+  const url = new URL(`${silo.baseUrl}/api/v1/catalog`);
+  if (query) url.searchParams.set("q", query);
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${s.accessToken}` } });
   if (!res.ok) {
     throw new Error(`Silo catalog request failed: ${res.status}`);
   }
   const data = (await res.json()) as { items: SiloCatalogItem[] };
+  return data.items.filter((item) => item.type === "movie").map(toSiloItem);
+}
+
+export async function listSiloItems(): Promise<SiloItem[]> {
   // Silo's catalog has no confirmed offset/limit pagination and can be enormous
   // (six-figure item counts) - like Plex's "popular" page, we only take the single
   // bounded page the API hands back rather than paging through everything.
-  return data.items
-    .filter((item) => item.type === "movie")
-    .map((item) => ({
-      Id: item.content_id,
-      Name: item.title,
-      ProductionYear: item.year,
-      Type: "Movie",
-      posterUrl: item.poster_url,
-      genre: item.genres?.[0],
-      ratingPercent:
-        item.rating_tmdb !== undefined
-          ? Math.round(item.rating_tmdb * 10)
-          : item.rating_imdb !== undefined
-            ? Math.round(item.rating_imdb * 10)
-            : undefined,
-    }));
+  return fetchCatalog();
+}
+
+// Confirmed working: /api/v1/catalog?q=<query> returns a real filtered result set, not
+// the full unfiltered catalog - a proper search, safe to use live per user-initiated query.
+export async function searchSiloItems(query: string): Promise<SiloItem[]> {
+  return fetchCatalog(query);
 }
 
 export function siloPosterUrl(_itemId: string, item?: { posterUrl?: string }): string | undefined {

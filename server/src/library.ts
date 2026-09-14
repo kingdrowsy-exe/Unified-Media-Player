@@ -1,7 +1,7 @@
 import { config } from "./config.js";
 import { cached } from "./cache.js";
-import { listPopularLibraryItems, PlexItem } from "./clients/plex.js";
-import { listSiloItems, SiloItem } from "./clients/silo.js";
+import { listPopularLibraryItems, PlexItem, searchLibraryItems as searchPlexItems } from "./clients/plex.js";
+import { listSiloItems, searchSiloItems, SiloItem } from "./clients/silo.js";
 import { mergeLibraries, MergedItem } from "./merge.js";
 import { NotConfiguredError } from "./settingsStore.js";
 
@@ -34,4 +34,19 @@ export function getOwnedPopularLibrary(): Promise<OwnedLibrary> {
       sources: { plex: plex.configured, silo: silo.configured },
     };
   });
+}
+
+// A real, live, title-filtered search against Plex and Silo - both use targeted, indexed
+// queries (not a full library scan), so this is safe to run per user-initiated search
+// rather than only searching the small cached "popular" page, which would miss almost
+// everything you actually own.
+export async function searchOwnedLibrary(query: string): Promise<OwnedLibrary> {
+  const [plex, silo] = await Promise.all([
+    safeList<PlexItem>(() => searchPlexItems(query)),
+    safeList<SiloItem>(() => searchSiloItems(query)),
+  ]);
+  return {
+    merged: mergeLibraries(plex.items, silo.items),
+    sources: { plex: plex.configured, silo: silo.configured },
+  };
 }

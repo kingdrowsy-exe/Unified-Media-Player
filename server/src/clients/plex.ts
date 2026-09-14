@@ -68,6 +68,23 @@ export async function listPopularLibraryItems(): Promise<PlexItem[]> {
   return results.flat();
 }
 
+// A title filter is a targeted, indexed lookup (Plex's SQLite metadata DB), not a full
+// section scan the way sorting by rating across everything is - this is the same kind of
+// query every real Plex client does for search-as-you-type, and is fine to run live,
+// debounced, per user-initiated search rather than only checking the cached popular page.
+export async function searchLibraryItems(query: string): Promise<PlexItem[]> {
+  const sections = await moviesAndShowSections();
+  const results = await Promise.all(
+    sections.map(async (section) => {
+      const data = await plexFetch<{ MediaContainer: { Metadata?: PlexItem[] } }>(
+        `/library/sections/${section.key}/all?title=${encodeURIComponent(query)}`,
+      );
+      return data.MediaContainer.Metadata ?? [];
+    }),
+  );
+  return results.flat();
+}
+
 export function plexPosterUrl(thumb?: string): string | undefined {
   if (!thumb) return undefined;
   const plex = settingsStore.getPlex();

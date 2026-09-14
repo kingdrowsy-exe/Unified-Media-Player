@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { MergedItem, PopularItem, fetchOnDemand, fetchPopular, streamUrlFor } from "../api.js";
+import { MergedItem, PopularItem, fetchMatch, fetchOnDemand, fetchPopular, streamUrlFor } from "../api.js";
 import Player from "../components/Player.js";
 import Hero, { HeroItem } from "../components/Hero.js";
 import Shelf from "../components/Shelf.js";
@@ -21,11 +21,6 @@ function interleave<T>(a: T[], b: T[]): T[] {
 type SourceFilter = "all" | "plex" | "silo";
 type Playable = MergedItem | PopularItem;
 
-function bySource(source: SourceFilter) {
-  return (item: { sources: { source: "plex" | "silo"; id: string }[] }) =>
-    source === "all" || item.sources.some((s) => s.source === source);
-}
-
 export default function OnDemand() {
   const [items, setItems] = useState<MergedItem[]>([]);
   const [sources, setSources] = useState<{ plex: boolean; silo: boolean } | null>(null);
@@ -37,6 +32,9 @@ export default function OnDemand() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playing, setPlaying] = useState<Playable | null>(null);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const notOwnedIds = useRef<Set<string>>(new Set());
 
   const isSearching = search.trim().length > 0;
 
@@ -68,43 +66,62 @@ export default function OnDemand() {
     return () => clearTimeout(handle);
   }, [search, source, isSearching]);
 
-  function play(item: Playable) {
-    if (item.sources.length === 0) return;
-    setPlaying(item);
+  async function play(item: Playable) {
+    if (item.sources.length > 0) {
+      setPlaying(item);
+      return;
+    }
+    if (notOwnedIds.current.has(item.id)) {
+      setNotice(`"${item.title}" isn't in your connected libraries.`);
+      return;
+    }
+    setNotice(null);
+    setCheckingId(item.id);
+    try {
+      const result = await fetchMatch(item.title, item.year);
+      if (result.sources.length > 0) {
+        setPlaying({ ...item, sources: result.sources });
+      } else {
+        notOwnedIds.current.add(item.id);
+        setNotice(`"${item.title}" isn't in your connected libraries.`);
+      }
+    } catch (err) {
+      setNotice(`Couldn't check "${item.title}": ${(err as Error).message}`);
+    } finally {
+      setCheckingId(null);
+    }
   }
 
   const playSource = playing?.sources[0];
   const noSourcesConnected = sources && !sources.plex && !sources.silo;
 
-  const filteredMovies = useMemo(() => popularMovies.filter(bySource(source)), [popularMovies, source]);
-  const filteredShows = useMemo(() => popularShows.filter(bySource(source)), [popularShows, source]);
-
   const heroItems: HeroItem[] = useMemo(
     () =>
-      interleave(filteredMovies, filteredShows)
+      interleave(popularMovies, popularShows)
         .slice(0, HERO_SLIDE_COUNT)
         .map((item) => ({
           image: item.backdrop ?? item.poster,
           title: item.title,
           subtitle: [item.year, item.genre].filter(Boolean).join(" · "),
-          owned: item.sources.length > 0,
+          owned: true,
           onPlay: () => play(item),
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filteredMovies, filteredShows],
+    [popularMovies, popularShows],
   );
 
   function renderTile(item: Playable) {
+    const isKnownOwned = item.sources.length > 0;
     return (
       <Tile
         key={item.id}
         image={item.poster}
-        title={item.title}
+        title={checkingId === item.id ? `${item.title} — checking…` : item.title}
         genre={item.genre}
         ratingPercent={item.ratingPercent}
         year={item.year}
-        owned={item.sources.length > 0}
-        badges={item.sources.map((s) => s.source)}
+        owned
+        badges={isKnownOwned ? item.sources.map((s) => s.source) : undefined}
         onClick={() => play(item)}
       />
     );
@@ -113,6 +130,8 @@ export default function OnDemand() {
   return (
     <div className="page">
       {!isSearching && heroItems.length > 0 && <Hero items={heroItems} />}
+
+      {notice && <div className="notice">{notice}</div>}
 
       {!isSearching && tmdbConfigured === false && (
         <div className="notice">
@@ -139,11 +158,12 @@ export default function OnDemand() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        {(["all", "plex", "silo"] as const).map((s) => (
-          <span key={s} className={`chip ${source === s ? "active" : ""}`} onClick={() => setSource(s)}>
-            {s === "all" ? "All" : s === "plex" ? "Plex" : "Silo"}
-          </span>
-        ))}
+        {isSearching &&
+          (["all", "plex", "silo"] as const).map((s) => (
+            <span key={s} className={`chip ${source === s ? "active" : ""}`} onClick={() => setSource(s)}>
+              {s === "all" ? "All" : s === "plex" ? "Plex" : "Silo"}
+            </span>
+          ))}
       </div>
 
       {isSearching && loading && <div className="status">Searching…</div>}
@@ -167,8 +187,8 @@ export default function OnDemand() {
 
       {!isSearching && (
         <>
-          {filteredMovies.length > 0 && <Shelf title="Popular Movies">{filteredMovies.map(renderTile)}</Shelf>}
-          {filteredShows.length > 0 && <Shelf title="Popular Shows">{filteredShows.map(renderTile)}</Shelf>}
+          {popularMovies.length > 0 && <Shelf title="Popular Movies">{popularMovies.map(renderTile)}</Shelf>}
+          {popularShows.length > 0 && <Shelf title="Popular Shows">{popularShows.map(renderTile)}</Shelf>}
         </>
       )}
 

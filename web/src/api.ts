@@ -121,6 +121,16 @@ export function fetchPopular(): Promise<{ movies: PopularItem[]; shows: PopularI
   return getJson("/api/popular");
 }
 
+export function fetchMatch(
+  title: string,
+  year?: number,
+): Promise<{ sources: { source: "plex" | "silo"; id: string }[] }> {
+  const url = new URL("/api/match", window.location.origin);
+  url.searchParams.set("title", title);
+  if (year) url.searchParams.set("year", String(year));
+  return getJson(url.toString());
+}
+
 export function saveTmdb(accessToken: string): Promise<{ ok: true }> {
   return postJson("/api/settings/tmdb", { accessToken });
 }
