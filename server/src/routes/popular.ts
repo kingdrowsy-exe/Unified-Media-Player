@@ -12,6 +12,7 @@ export interface PopularItem {
   year?: number;
   type: "movie" | "show";
   poster?: string;
+  backdrop?: string;
   genre?: string;
   ratingPercent?: number;
   sources: { source: "plex" | "silo"; id: string }[];
@@ -49,6 +50,7 @@ export async function popularRoutes(app: FastifyInstance) {
         year: t.year,
         type: t.type,
         poster: t.poster,
+        backdrop: t.backdrop,
         genre: t.genre,
         ratingPercent: t.ratingPercent,
         sources: local?.sources ?? [],

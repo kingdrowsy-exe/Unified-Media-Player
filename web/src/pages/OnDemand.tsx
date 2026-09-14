@@ -2,9 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MergedItem, PopularItem, fetchOnDemand, fetchPopular, streamUrlFor } from "../api.js";
 import Player from "../components/Player.js";
-import Hero from "../components/Hero.js";
+import Hero, { HeroItem } from "../components/Hero.js";
 import Shelf from "../components/Shelf.js";
 import Tile from "../components/Tile.js";
+
+const HERO_SLIDE_COUNT = 8;
+
+// Alternate movie/show/movie/show... so the rotation isn't just "all movies then all shows".
+function interleave<T>(a: T[], b: T[]): T[] {
+  const result: T[] = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i]) result.push(a[i]);
+    if (b[i]) result.push(b[i]);
+  }
+  return result;
+}
 
 type SourceFilter = "all" | "plex" | "silo";
 type Playable = MergedItem | PopularItem;
@@ -66,7 +78,21 @@ export default function OnDemand() {
 
   const filteredMovies = useMemo(() => popularMovies.filter(bySource(source)), [popularMovies, source]);
   const filteredShows = useMemo(() => popularShows.filter(bySource(source)), [popularShows, source]);
-  const featured = filteredMovies[0] ?? filteredShows[0];
+
+  const heroItems: HeroItem[] = useMemo(
+    () =>
+      interleave(filteredMovies, filteredShows)
+        .slice(0, HERO_SLIDE_COUNT)
+        .map((item) => ({
+          image: item.backdrop ?? item.poster,
+          title: item.title,
+          subtitle: [item.year, item.genre].filter(Boolean).join(" · "),
+          owned: item.sources.length > 0,
+          onPlay: () => play(item),
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filteredMovies, filteredShows],
+  );
 
   function renderTile(item: Playable) {
     return (
@@ -86,15 +112,7 @@ export default function OnDemand() {
 
   return (
     <div className="page">
-      {!isSearching && featured && (
-        <Hero
-          image={featured.poster}
-          title={featured.title}
-          subtitle={[featured.year, featured.genre].filter(Boolean).join(" · ")}
-          owned={featured.sources.length > 0}
-          onPlay={() => play(featured)}
-        />
-      )}
+      {!isSearching && heroItems.length > 0 && <Hero items={heroItems} />}
 
       {!isSearching && tmdbConfigured === false && (
         <div className="notice">

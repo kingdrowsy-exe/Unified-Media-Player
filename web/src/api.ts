@@ -39,6 +39,7 @@ export interface PopularItem {
   year?: number;
   type: "movie" | "show";
   poster?: string;
+  backdrop?: string;
   genre?: string;
   ratingPercent?: number;
   sources: { source: "plex" | "silo"; id: string }[];

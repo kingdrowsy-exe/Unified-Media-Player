@@ -2,12 +2,14 @@ import { NotConfiguredError, settingsStore } from "../settingsStore.js";
 
 const API_BASE = "https://api.themoviedb.org/3";
 const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
+const BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280";
 
 export interface TmdbItem {
   id: number;
   title: string;
   year?: number;
   poster?: string;
+  backdrop?: string;
   genre?: string;
   ratingPercent?: number;
   type: "movie" | "show";
@@ -20,6 +22,7 @@ interface RawTmdbResult {
   release_date?: string;
   first_air_date?: string;
   poster_path?: string;
+  backdrop_path?: string;
   vote_average?: number;
   genre_ids?: number[];
 }
@@ -74,6 +77,7 @@ function toItem(raw: RawTmdbResult, type: "movie" | "show", genres: Map<number, 
     title: (raw.title ?? raw.name ?? "").trim(),
     year: dateStr ? Number(dateStr.slice(0, 4)) : undefined,
     poster: raw.poster_path ? `${POSTER_BASE}${raw.poster_path}` : undefined,
+    backdrop: raw.backdrop_path ? `${BACKDROP_BASE}${raw.backdrop_path}` : undefined,
     genre: raw.genre_ids?.length ? genres.get(raw.genre_ids[0]) : undefined,
     ratingPercent: raw.vote_average ? Math.round(raw.vote_average * 10) : undefined,
     type,
