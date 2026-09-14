@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { settingsStore } from "../settingsStore.js";
 import { checkPin, createPin, resolveServerFromAuthToken } from "../clients/plexLink.js";
+import { resetSiloSession } from "../clients/silo.js";
 import { bustCache } from "../cache.js";
 
 interface PendingPin {
@@ -71,12 +72,14 @@ export async function settingsRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: (err as Error).message });
     }
     settingsStore.setSilo({ baseUrl: cleanBaseUrl, username, password });
+    resetSiloSession();
     bustCache("ondemand:");
     return { ok: true };
   });
 
   app.delete("/api/settings/silo", async () => {
     settingsStore.clearSilo();
+    resetSiloSession();
     bustCache("ondemand:");
     return { ok: true };
   });

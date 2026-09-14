@@ -59,7 +59,7 @@ export function mergeLibraries(plexItems: PlexItem[], siloItems: SiloItem[]): Me
     const existing = byKey.get(key);
     if (existing) {
       existing.sources.push({ source: "silo", id: item.Id });
-      existing.poster = existing.poster ?? siloPosterUrl(item.Id, item.ImageTags);
+      existing.poster = existing.poster ?? siloPosterUrl(item.Id, item);
       continue;
     }
     byKey.set(key, {
@@ -68,7 +68,9 @@ export function mergeLibraries(plexItems: PlexItem[], siloItems: SiloItem[]): Me
       title: item.Name,
       year: item.ProductionYear,
       type: siloTypeToCommon(item.Type),
-      poster: siloPosterUrl(item.Id, item.ImageTags),
+      poster: siloPosterUrl(item.Id, item),
+      genre: item.genre,
+      ratingPercent: item.ratingPercent,
       sources: [{ source: "silo", id: item.Id }],
     });
   }

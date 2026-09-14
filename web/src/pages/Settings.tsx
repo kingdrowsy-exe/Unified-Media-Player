@@ -227,8 +227,7 @@ export default function Settings() {
         {status.silo ? (
           <>
             <p className="settings-desc">
-              Logged in. Browsing Silo's library in On Demand is still being built — coming in a
-              follow-up.
+              Movies from Silo now appear in On Demand. TV shows aren't supported yet.
             </p>
             <button className="secondary" onClick={() => disconnectSilo().then(refreshStatus)}>
               Disconnect

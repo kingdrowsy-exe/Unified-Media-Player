@@ -31,6 +31,8 @@ Open http://localhost:5173 — on first run you'll land on **Settings**:
   the code there like any other Plex app. No token to copy.
 - **Silo** — log in with your Silo username and password.
 - **Xtream Codes** — log in with the server URL + username + password your IPTV provider gave you.
+- **TMDB** (optional) — paste an API Read Access Token (free at themoviedb.org/settings/api)
+  to power the Popular Movies/Shows shelves on On Demand.
 
 Credentials are validated live against each service before being saved, and stored in
 `server/data/settings.json` (gitignored) — not in `.env`, not committed anywhere.
@@ -55,15 +57,19 @@ Builds `web/dist` and serves it from the same Fastify process as the API.
 ## Notes
 
 - Stream URLs (`/api/stream/:source/:id`) redirect (302) to the real, token-bearing
-  upstream URL — provider tokens never reach the browser directly in JSON responses.
+  upstream URL for Plex and Live TV — provider tokens never reach the browser directly in
+  JSON responses. Silo is the exception: its stream endpoint requires an `Authorization`
+  header (not a URL-embeddable token), which a redirect can't hand off to the browser, so
+  Silo video is proxied through this server instead (`server/src/routes/stream.ts`).
 - Library/channel listings are cached in-memory for `CACHE_TTL_SECONDS` (default 300s);
   the cache is invalidated automatically whenever you connect/disconnect a source in Settings.
 - If a source isn't configured yet, `/api/ondemand` and `/api/live/*` degrade gracefully
   (409 for Live TV, partial results for On Demand) rather than erroring the whole app.
-- **Known limitation:** Silo login works against its real API (`/api/v1/auth/login`,
-  JWT-based — it is not actually Jellyfin/Emby-compatible despite running similar
-  infrastructure). Its catalog browsing (`/api/v1/catalog`, 1M+ items, pagination
-  unconfirmed) and per-item stream-resolution endpoint haven't been mapped yet, so Silo
-  titles don't appear in the merged On Demand library. This is a deliberately deferred
-  follow-up — see `server/src/clients/silo.ts`.
+- **Known limitations:**
+  - Silo: movies only for now — TV shows need per-episode lookups that aren't mapped yet.
+    No confirmed catalog pagination, so (like Plex) only the first bounded page is shown.
+    Silo's stream endpoint doesn't support Range requests, so seeking is limited to what
+    the browser can do with an already-buffered progressive download.
+  - On Demand search only covers each source's cached "popular" page, not the full
+    library — see the note in `server/src/routes/ondemand.ts` for why.
 - No merged watch-progress sync, no native apps — deferred.
