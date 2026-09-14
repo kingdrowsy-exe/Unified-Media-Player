@@ -124,7 +124,7 @@ export default function Settings() {
 
   return (
     <div className="page settings-page">
-      <section className="settings-card">
+      <section className="settings-card settings-card-plex">
         <div className="settings-card-header">
           <h2>Plex</h2>
           {status.plex && <span className="badge connected">Connected{status.plexServerName ? ` · ${status.plexServerName}` : ""}</span>}
@@ -163,7 +163,7 @@ export default function Settings() {
         {plexLink.phase === "error" && <div className="settings-error">{plexLink.message}</div>}
       </section>
 
-      <section className="settings-card">
+      <section className="settings-card settings-card-silo">
         <div className="settings-card-header">
           <h2>Silo</h2>
           {status.silo && <span className="badge connected">Connected</span>}
@@ -190,7 +190,7 @@ export default function Settings() {
         )}
       </section>
 
-      <section className="settings-card">
+      <section className="settings-card settings-card-xtream">
         <div className="settings-card-header">
           <h2>Xtream Codes IPTV</h2>
           {status.xtream && <span className="badge connected">Connected</span>}

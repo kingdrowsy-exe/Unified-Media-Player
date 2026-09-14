@@ -178,7 +178,9 @@ export default function InlinePlayer({ src, icon, title, subtitle }: InlinePlaye
                 <span className="live-badge">
                   <span className="live-dot" /> LIVE
                 </span>
-                {quality && <span className="quality-badge">{quality}</span>}
+                {quality && (
+                  <span className={`quality-badge ${quality === "4K" ? "quality-badge-4k" : ""}`}>{quality}</span>
+                )}
                 {subtitle && <span className="player-bar-category">{subtitle}</span>}
               </div>
             </div>

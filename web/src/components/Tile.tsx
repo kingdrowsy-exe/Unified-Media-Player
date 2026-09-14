@@ -39,7 +39,7 @@ export default function Tile({
       {badges && badges.length > 0 && (
         <div className="tile-subtitle">
           {badges.map((b) => (
-            <span className="badge" key={b}>
+            <span className={`badge badge-${b}`} key={b}>
               {b}
             </span>
           ))}

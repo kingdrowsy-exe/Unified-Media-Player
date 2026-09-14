@@ -64,7 +64,9 @@ function GuideRow({
       <div className="guide-row-info">
         <div className="guide-row-name">
           <span>{quality ? stripQualityFromName(channel.name) : channel.name}</span>
-          {quality && <span className="quality-badge">{quality}</span>}
+          {quality && (
+            <span className={`quality-badge ${quality === "4K" ? "quality-badge-4k" : ""}`}>{quality}</span>
+          )}
         </div>
         <div className="guide-row-now">
           {now ? (
