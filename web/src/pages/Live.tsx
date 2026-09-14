@@ -5,6 +5,7 @@ import InlinePlayer from "../components/InlinePlayer.js";
 import { useInView } from "../hooks/useInView.js";
 import { qualityFromName, stripQualityFromName } from "../utils/quality.js";
 import { groupCategories } from "../utils/categoryGroups.js";
+import { createLimiter } from "../utils/concurrencyLimiter.js";
 
 type Filter = { kind: "all" } | { kind: "group"; group: string } | { kind: "category"; category: string };
 
@@ -22,6 +23,7 @@ function formatTime(iso: string): string {
 // Cache results so scrolling a row out of and back into view doesn't re-fetch, and only
 // fetch once a row is actually visible.
 const epgCache = new Map<number, EpgListing[]>();
+const epgLimiter = createLimiter(4);
 
 function GuideRow({
   channel,
@@ -39,7 +41,7 @@ function GuideRow({
   useEffect(() => {
     if (!inView || epgCache.has(channel.id)) return;
     let cancelled = false;
-    fetchEpg(channel.id)
+    epgLimiter(() => fetchEpg(channel.id))
       .then((res) => {
         const listings = res.listings.slice(0, 1);
         epgCache.set(channel.id, listings);

@@ -80,18 +80,33 @@ function toItem(raw: RawTmdbResult, type: "movie" | "show", genres: Map<number, 
   };
 }
 
+// TMDB returns 20 results per page, so getting 24 needs two page fetches. These happen
+// at most once per CACHE_TTL_SECONDS (the caller wraps this in the shared cache), and are
+// fetched sequentially rather than in parallel - simple, deliberate throttling to stay
+// far under TMDB's rate limit (40 req/s) regardless of how many things call this at once.
+const POPULAR_COUNT = 24;
+const PAGE_SIZE = 20;
+
+async function fetchPopularPages(path: string): Promise<RawTmdbResult[]> {
+  const results: RawTmdbResult[] = [];
+  for (let page = 1; results.length < POPULAR_COUNT; page++) {
+    const data = await tmdbFetch<{ results: RawTmdbResult[]; total_pages: number }>(
+      `${path}?page=${page}`,
+    );
+    results.push(...data.results);
+    if (page >= data.total_pages || data.results.length < PAGE_SIZE) break;
+  }
+  return results.slice(0, POPULAR_COUNT);
+}
+
 export async function getPopularMovies(): Promise<TmdbItem[]> {
-  const [data, genres] = await Promise.all([
-    tmdbFetch<{ results: RawTmdbResult[] }>("/movie/popular"),
-    getMovieGenres(),
-  ]);
-  return data.results.map((r) => toItem(r, "movie", genres));
+  const genres = await getMovieGenres();
+  const results = await fetchPopularPages("/movie/popular");
+  return results.map((r) => toItem(r, "movie", genres));
 }
 
 export async function getPopularShows(): Promise<TmdbItem[]> {
-  const [data, genres] = await Promise.all([
-    tmdbFetch<{ results: RawTmdbResult[] }>("/tv/popular"),
-    getShowGenres(),
-  ]);
-  return data.results.map((r) => toItem(r, "show", genres));
+  const genres = await getShowGenres();
+  const results = await fetchPopularPages("/tv/popular");
+  return results.map((r) => toItem(r, "show", genres));
 }

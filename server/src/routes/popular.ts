@@ -22,7 +22,10 @@ export async function popularRoutes(app: FastifyInstance) {
     let tmdb: { movies: TmdbItem[]; shows: TmdbItem[] };
     try {
       tmdb = await cached("popular:tmdb", config.cacheTtlSeconds, async () => {
-        const [movies, shows] = await Promise.all([getPopularMovies(), getPopularShows()]);
+        // Sequential, not Promise.all - keeps requests to TMDB spaced out one at a time
+        // rather than bursting, even though this only ever runs once per cache window.
+        const movies = await getPopularMovies();
+        const shows = await getPopularShows();
         return { movies, shows };
       });
     } catch (err) {
