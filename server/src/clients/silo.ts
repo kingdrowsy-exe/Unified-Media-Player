@@ -13,14 +13,6 @@ export interface SiloItem {
   ImageTags?: { Primary?: string };
 }
 
-interface SiloAuthResult {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-}
-
-let session: { accessToken: string; expiresAt: number } | null = null;
-
 function requireSilo() {
   const silo = settingsStore.getSilo();
   if (!silo) {
@@ -29,40 +21,14 @@ function requireSilo() {
   return silo;
 }
 
-export function resetSiloSession() {
-  session = null;
-}
-
-async function authenticate(): Promise<{ accessToken: string; expiresAt: number }> {
-  const silo = requireSilo();
-  const res = await fetch(`${silo.baseUrl}/api/v1/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: silo.username, password: silo.password }),
-  });
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!res.ok || !contentType.includes("application/json")) {
-    throw new Error(`Silo authentication failed: ${res.status}`);
-  }
-  const data = (await res.json()) as SiloAuthResult;
-  session = { accessToken: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return session;
-}
-
-async function getSession() {
-  if (!session || session.expiresAt < Date.now()) {
-    return authenticate();
-  }
-  return session;
-}
-
 export async function listSiloItems(): Promise<SiloItem[]> {
   requireSilo();
-  await getSession();
   // Silo's catalog endpoint (/api/v1/catalog) is confirmed reachable and returns
   // real hosted movies/series, but its pagination and per-item stream-resolution
   // endpoints haven't been mapped yet - deferred until that's worked out, so Silo
   // titles don't appear in the merged On Demand library yet even though login works.
+  // No point authenticating here just to throw the session away unused - skip it
+  // until there's an actual catalog call to make with it.
   return [];
 }
 
