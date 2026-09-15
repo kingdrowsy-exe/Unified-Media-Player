@@ -402,7 +402,7 @@ a {
 
 .tile {
   flex: 0 0 auto;
-  width: 170px;
+  width: 210px;
   cursor: pointer;
   scroll-snap-align: start;
   outline: none;
@@ -471,7 +471,7 @@ a {
 
 .tile-meta {
   margin-top: 10px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -483,8 +483,8 @@ a {
 }
 
 .tile-title {
-  margin-top: 2px;
-  font-size: 14px;
+  margin-top: 3px;
+  font-size: 15px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -493,8 +493,8 @@ a {
 }
 
 .tile-subtitle {
-  margin-top: 2px;
-  font-size: 11px;
+  margin-top: 3px;
+  font-size: 12px;
   color: var(--text-muted);
   display: flex;
   gap: 6px;

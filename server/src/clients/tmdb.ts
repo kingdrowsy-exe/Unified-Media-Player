@@ -85,11 +85,12 @@ function toItem(raw: RawTmdbResult, type: "movie" | "show", genres: Map<number, 
   };
 }
 
-// TMDB returns 20 results per page, so getting 24 needs two page fetches. These happen
-// at most once per CACHE_TTL_SECONDS (the caller wraps this in the shared cache), and are
-// fetched sequentially rather than in parallel - simple, deliberate throttling to stay
-// far under TMDB's rate limit (40 req/s) regardless of how many things call this at once.
-const POPULAR_COUNT = 24;
+// TMDB returns 20 results per page, so a single page fetch covers POPULAR_COUNT. This
+// happens at most once per CACHE_TTL_SECONDS (the caller wraps this in the shared cache),
+// and pages are fetched sequentially rather than in parallel - simple, deliberate
+// throttling to stay far under TMDB's rate limit (40 req/s) regardless of how many things
+// call this at once.
+const POPULAR_COUNT = 10;
 const PAGE_SIZE = 20;
 
 async function fetchPopularPages(path: string): Promise<RawTmdbResult[]> {
