@@ -172,6 +172,23 @@ function siloToSourceVersion(v: SiloMediaVersion): SourceVersion {
   };
 }
 
+const RESOLUTION_RANK: Record<string, number> = {
+  "4K": 0,
+  "1080p": 1,
+  "720p": 2,
+  "480p": 3,
+};
+
+function resolutionRank(resolution?: string): number {
+  if (!resolution) return 99;
+  return RESOLUTION_RANK[resolution] ?? 50;
+}
+
+// Highest quality first - 4K always leads, regardless of which source/order it came from.
+function sortByQuality(versions: SourceVersion[]): SourceVersion[] {
+  return [...versions].sort((a, b) => resolutionRank(a.resolution) - resolutionRank(b.resolution));
+}
+
 export async function detailsRoutes(app: FastifyInstance) {
   app.get("/api/details/:type/:id", async (request) => {
     const { type, id } = request.params as { type: string; id: string };
@@ -210,6 +227,6 @@ export async function detailsRoutes(app: FastifyInstance) {
       }
     }
 
-    return { versions };
+    return { versions: sortByQuality(versions) };
   });
 }
