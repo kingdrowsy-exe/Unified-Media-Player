@@ -94,6 +94,49 @@ export function plexPosterUrl(thumb?: string): string | undefined {
   return url.toString();
 }
 
+export interface PlexMediaVersion {
+  ratingKey: string;
+  videoResolution?: string;
+  videoCodec?: string;
+  audioCodec?: string;
+  audioChannels?: number;
+  container?: string;
+  bitrate?: number;
+  filename?: string;
+  size?: number;
+}
+
+export async function getPlexMediaVersions(ratingKey: string): Promise<PlexMediaVersion[]> {
+  const data = await plexFetch<{
+    MediaContainer: {
+      Metadata?: {
+        Media?: {
+          videoResolution?: string;
+          videoCodec?: string;
+          audioCodec?: string;
+          audioChannels?: number;
+          container?: string;
+          bitrate?: number;
+          Part?: { file?: string; size?: number; key?: string }[];
+        }[];
+      }[];
+    };
+  }>(`/library/metadata/${ratingKey}`);
+
+  const media = data.MediaContainer.Metadata?.[0]?.Media ?? [];
+  return media.map((m) => ({
+    ratingKey,
+    videoResolution: m.videoResolution,
+    videoCodec: m.videoCodec,
+    audioCodec: m.audioCodec,
+    audioChannels: m.audioChannels,
+    container: m.container,
+    bitrate: m.bitrate,
+    filename: m.Part?.[0]?.file?.split(/[/\\]/).pop(),
+    size: m.Part?.[0]?.size,
+  }));
+}
+
 export async function resolvePlexStreamUrl(ratingKey: string): Promise<string> {
   const plex = requirePlex();
   const data = await plexFetch<{

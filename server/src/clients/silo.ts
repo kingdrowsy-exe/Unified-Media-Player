@@ -39,6 +39,26 @@ interface SiloCatalogItem {
 
 interface SiloWatchVersion {
   file_id: number;
+  file_name?: string;
+  file_size?: number;
+  resolution?: string;
+  video_codec?: string;
+  audio_codec?: string;
+  audio_channels?: number;
+  hdr?: string;
+  dynamic_range?: string;
+}
+
+export interface SiloMediaVersion {
+  contentId: string;
+  fileId: number;
+  filename?: string;
+  size?: number;
+  resolution?: string;
+  videoCodec?: string;
+  audioCodec?: string;
+  audioChannels?: number;
+  hdr?: string;
 }
 
 let session: { accessToken: string; expiresAt: number } | null = null;
@@ -144,6 +164,29 @@ export async function searchSiloItems(query: string): Promise<SiloItem[]> {
 
 export function siloPosterUrl(_itemId: string, item?: { posterUrl?: string }): string | undefined {
   return item?.posterUrl;
+}
+
+export async function getSiloMediaVersions(contentId: string): Promise<SiloMediaVersion[]> {
+  const silo = requireSilo();
+  const s = await getSession();
+  const res = await fetch(`${silo.baseUrl}/api/v1/watch/${contentId}`, {
+    headers: { Authorization: `Bearer ${s.accessToken}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Silo item isn't directly playable (${res.status})`);
+  }
+  const data = (await res.json()) as { versions?: SiloWatchVersion[] };
+  return (data.versions ?? []).map((v) => ({
+    contentId,
+    fileId: v.file_id,
+    filename: v.file_name,
+    size: v.file_size,
+    resolution: v.resolution,
+    videoCodec: v.video_codec,
+    audioCodec: v.audio_codec,
+    audioChannels: v.audio_channels,
+    hdr: v.hdr ?? v.dynamic_range,
+  }));
 }
 
 const CLIENT_CAPABILITIES = {

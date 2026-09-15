@@ -3,6 +3,7 @@ import { NotConfiguredError, settingsStore } from "../settingsStore.js";
 const API_BASE = "https://api.themoviedb.org/3";
 const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
 const BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280";
+const PROFILE_BASE = "https://image.tmdb.org/t/p/w185";
 
 export interface TmdbItem {
   id: number;
@@ -113,4 +114,96 @@ export async function getPopularShows(): Promise<TmdbItem[]> {
   const genres = await getShowGenres();
   const results = await fetchPopularPages("/tv/popular");
   return results.map((r) => toItem(r, "show", genres));
+}
+
+export interface TmdbCastMember {
+  name: string;
+  character: string;
+  profilePath?: string;
+}
+
+export interface TmdbDetails {
+  id: number;
+  title: string;
+  overview: string;
+  releaseDate?: string;
+  runtime?: number;
+  genres: string[];
+  voteAverage: number;
+  backdrop?: string;
+  poster?: string;
+  status?: string;
+  tagline?: string;
+  cast: TmdbCastMember[];
+  similar: TmdbItem[];
+  type: "movie" | "show";
+}
+
+interface RawCastMember {
+  name: string;
+  character?: string;
+  profile_path?: string;
+  order?: number;
+}
+
+export async function getMovieDetails(tmdbId: number): Promise<TmdbDetails> {
+  const [detail, credits, similar] = await Promise.all([
+    tmdbFetch<Record<string, unknown>>(`/movie/${tmdbId}`),
+    tmdbFetch<{ cast?: RawCastMember[] }>(`/movie/${tmdbId}/credits`),
+    tmdbFetch<{ results: RawTmdbResult[] }>(`/movie/${tmdbId}/similar?page=1`),
+  ]);
+
+  const genres = await getMovieGenres();
+
+  return {
+    id: tmdbId,
+    title: (detail.title as string) ?? "",
+    overview: (detail.overview as string) ?? "",
+    releaseDate: (detail.release_date as string) ?? undefined,
+    runtime: (detail.runtime as number) ?? undefined,
+    genres: ((detail.genres as { id: number; name: string }[]) ?? []).map((g) => g.name),
+    voteAverage: (detail.vote_average as number) ?? 0,
+    backdrop: detail.backdrop_path ? `${BACKDROP_BASE}${detail.backdrop_path}` : undefined,
+    poster: detail.poster_path ? `${POSTER_BASE}${detail.poster_path}` : undefined,
+    status: (detail.status as string) ?? undefined,
+    tagline: (detail.tagline as string) ?? undefined,
+    cast: (credits.cast ?? []).slice(0, 12).map((c) => ({
+      name: c.name,
+      character: c.character ?? "",
+      profilePath: c.profile_path ? `${PROFILE_BASE}${c.profile_path}` : undefined,
+    })),
+    similar: similar.results.slice(0, 12).map((r) => toItem(r, "movie", genres)),
+    type: "movie",
+  };
+}
+
+export async function getTvDetails(tmdbId: number): Promise<TmdbDetails> {
+  const [detail, credits, similar] = await Promise.all([
+    tmdbFetch<Record<string, unknown>>(`/tv/${tmdbId}`),
+    tmdbFetch<{ cast?: RawCastMember[] }>(`/tv/${tmdbId}/credits`),
+    tmdbFetch<{ results: RawTmdbResult[] }>(`/tv/${tmdbId}/similar?page=1`),
+  ]);
+
+  const genres = await getShowGenres();
+
+  return {
+    id: tmdbId,
+    title: (detail.name as string) ?? "",
+    overview: (detail.overview as string) ?? "",
+    releaseDate: (detail.first_air_date as string) ?? undefined,
+    runtime: ((detail.episode_run_time as number[]) ?? [])[0] ?? undefined,
+    genres: ((detail.genres as { id: number; name: string }[]) ?? []).map((g) => g.name),
+    voteAverage: (detail.vote_average as number) ?? 0,
+    backdrop: detail.backdrop_path ? `${BACKDROP_BASE}${detail.backdrop_path}` : undefined,
+    poster: detail.poster_path ? `${POSTER_BASE}${detail.poster_path}` : undefined,
+    status: (detail.status as string) ?? undefined,
+    tagline: (detail.tagline as string) ?? undefined,
+    cast: (credits.cast ?? []).slice(0, 12).map((c) => ({
+      name: c.name,
+      character: c.character ?? "",
+      profilePath: c.profile_path ? `${PROFILE_BASE}${c.profile_path}` : undefined,
+    })),
+    similar: similar.results.slice(0, 12).map((r) => toItem(r, "show", genres)),
+    type: "show",
+  };
 }

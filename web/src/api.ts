@@ -121,6 +121,55 @@ export function fetchPopular(): Promise<{ movies: PopularItem[]; shows: PopularI
   return getJson("/api/popular");
 }
 
+export interface TmdbCastMember {
+  name: string;
+  character: string;
+  profilePath?: string;
+}
+
+export interface TmdbDetails {
+  id: number;
+  title: string;
+  overview: string;
+  releaseDate?: string;
+  runtime?: number;
+  genres: string[];
+  voteAverage: number;
+  backdrop?: string;
+  poster?: string;
+  status?: string;
+  tagline?: string;
+  cast: TmdbCastMember[];
+  similar: { id: number; title: string; year?: number; poster?: string; type: "movie" | "show"; genre?: string; ratingPercent?: number }[];
+  type: "movie" | "show";
+}
+
+export interface SourceVersion {
+  source: "plex" | "silo";
+  id: string;
+  serverName: string;
+  filename?: string;
+  size?: number;
+  resolution?: string;
+  videoCodec?: string;
+  audioCodec?: string;
+  audioChannels?: number;
+  container?: string;
+  hdr?: string;
+  badges: string[];
+}
+
+export function fetchDetails(type: "movie" | "show", tmdbId: number): Promise<TmdbDetails> {
+  return getJson(`/api/details/${type}/${tmdbId}`);
+}
+
+export function fetchSources(title: string, year?: number): Promise<{ versions: SourceVersion[] }> {
+  const url = new URL("/api/sources", window.location.origin);
+  url.searchParams.set("title", title);
+  if (year) url.searchParams.set("year", String(year));
+  return getJson(url.toString());
+}
+
 export function fetchMatch(
   title: string,
   year?: number,

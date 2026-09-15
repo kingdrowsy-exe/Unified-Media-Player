@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { MergedItem, PopularItem, fetchMatch, fetchOnDemand, fetchPopular, streamUrlFor } from "../api.js";
-import Player from "../components/Player.js";
+import { MergedItem, PopularItem, fetchOnDemand, fetchPopular } from "../api.js";
+import MovieDetail from "../components/MovieDetail.js";
 import Hero, { HeroItem } from "../components/Hero.js";
 import Shelf from "../components/Shelf.js";
 import Tile from "../components/Tile.js";
 
 const HERO_SLIDE_COUNT = 8;
 
-// Alternate movie/show/movie/show... so the rotation isn't just "all movies then all shows".
 function interleave<T>(a: T[], b: T[]): T[] {
   const result: T[] = [];
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
@@ -31,10 +30,7 @@ export default function OnDemand() {
   const [source, setSource] = useState<SourceFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [playing, setPlaying] = useState<Playable | null>(null);
-  const [checkingId, setCheckingId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const notOwnedIds = useRef<Set<string>>(new Set());
+  const [selectedItem, setSelectedItem] = useState<Playable | null>(null);
 
   const isSearching = search.trim().length > 0;
 
@@ -66,33 +62,20 @@ export default function OnDemand() {
     return () => clearTimeout(handle);
   }, [search, source, isSearching]);
 
-  async function play(item: Playable) {
-    if (item.sources.length > 0) {
-      setPlaying(item);
-      return;
-    }
-    if (notOwnedIds.current.has(item.id)) {
-      setNotice(`"${item.title}" isn't in your connected libraries.`);
-      return;
-    }
-    setNotice(null);
-    setCheckingId(item.id);
-    try {
-      const result = await fetchMatch(item.title, item.year);
-      if (result.sources.length > 0) {
-        setPlaying({ ...item, sources: result.sources });
-      } else {
-        notOwnedIds.current.add(item.id);
-        setNotice(`"${item.title}" isn't in your connected libraries.`);
-      }
-    } catch (err) {
-      setNotice(`Couldn't check "${item.title}": ${(err as Error).message}`);
-    } finally {
-      setCheckingId(null);
-    }
+  function openDetail(item: Playable) {
+    setSelectedItem(item);
   }
 
-  const playSource = playing?.sources[0];
+  function handleSelectSimilar(tmdbId: number, type: "movie" | "show") {
+    const syntheticItem: PopularItem = {
+      id: `tmdb:${type}:${tmdbId}`,
+      title: "",
+      type,
+      sources: [],
+    };
+    setSelectedItem(syntheticItem);
+  }
+
   const noSourcesConnected = sources && !sources.plex && !sources.silo;
 
   const heroItems: HeroItem[] = useMemo(
@@ -104,7 +87,7 @@ export default function OnDemand() {
           title: item.title,
           subtitle: [item.year, item.genre].filter(Boolean).join(" · "),
           owned: true,
-          onPlay: () => play(item),
+          onPlay: () => openDetail(item),
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [popularMovies, popularShows],
@@ -116,13 +99,13 @@ export default function OnDemand() {
       <Tile
         key={item.id}
         image={item.poster}
-        title={checkingId === item.id ? `${item.title} — checking…` : item.title}
+        title={item.title}
         genre={item.genre}
         ratingPercent={item.ratingPercent}
         year={item.year}
         owned
         badges={isKnownOwned ? item.sources.map((s) => s.source) : undefined}
-        onClick={() => play(item)}
+        onClick={() => openDetail(item)}
       />
     );
   }
@@ -130,8 +113,6 @@ export default function OnDemand() {
   return (
     <div className="page">
       {!isSearching && heroItems.length > 0 && <Hero items={heroItems} />}
-
-      {notice && <div className="notice">{notice}</div>}
 
       {!isSearching && tmdbConfigured === false && (
         <div className="notice">
@@ -192,11 +173,11 @@ export default function OnDemand() {
         </>
       )}
 
-      {playing && playSource && (
-        <Player
-          src={streamUrlFor(playSource.source, playSource.id)}
-          title={playing.title}
-          onClose={() => setPlaying(null)}
+      {selectedItem && (
+        <MovieDetail
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onSelectSimilar={handleSelectSimilar}
         />
       )}
     </div>
