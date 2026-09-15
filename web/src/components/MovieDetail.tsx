@@ -137,10 +137,21 @@ export default function MovieDetail({ item, onClose, onSelectSimilar }: MovieDet
             <div className="detail-meta">{metaParts.join(" · ")}</div>
           )}
 
-          {rating > 0 && (
+          {(rating > 0 || details?.traktRating) && (
             <div className="detail-rating">
-              <span className="detail-rating-badge">TMDB</span>
-              <span className="detail-rating-value">{rating.toFixed(1)}</span>
+              {rating > 0 && (
+                <span className="detail-rating-group">
+                  <span className="detail-rating-badge">TMDB</span>
+                  <span className="detail-rating-value">{rating.toFixed(1)}</span>
+                </span>
+              )}
+              {details?.traktRating && (
+                <span className="detail-rating-group">
+                  <span className="detail-rating-badge detail-rating-badge-trakt">Trakt</span>
+                  <span className="detail-rating-value">{(details.traktRating.rating).toFixed(1)}</span>
+                  <span className="detail-rating-votes">({details.traktRating.votes.toLocaleString()})</span>
+                </span>
+              )}
             </div>
           )}
 
@@ -193,6 +204,31 @@ export default function MovieDetail({ item, onClose, onSelectSimilar }: MovieDet
                     </div>
                     <div className="detail-cast-name">{member.name}</div>
                     <div className="detail-cast-character">{member.character}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Reviews */}
+          {details?.traktComments && details.traktComments.length > 0 && (
+            <div className="detail-section">
+              <h2 className="detail-section-title">Reviews <span className="detail-section-source">from Trakt</span></h2>
+              <div className="detail-reviews">
+                {details.traktComments.map((c) => (
+                  <div key={c.id} className="review-card">
+                    <div className="review-card-header">
+                      <span className="review-avatar">{c.username.slice(0, 1).toUpperCase()}</span>
+                      <div>
+                        <div className="review-username">{c.username}</div>
+                        <div className="review-meta">
+                          Trakt · {new Date(c.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
+                          {c.spoiler && <span className="review-spoiler-tag">Spoiler</span>}
+                        </div>
+                      </div>
+                      {c.likes > 0 && <span className="review-likes">▲ {c.likes}</span>}
+                    </div>
+                    <p className={`review-text ${c.spoiler ? "review-text-spoiler" : ""}`}>{c.comment}</p>
                   </div>
                 ))}
               </div>

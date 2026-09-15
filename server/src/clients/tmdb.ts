@@ -116,6 +116,40 @@ export async function getPopularShows(): Promise<TmdbItem[]> {
   return results.map((r) => toItem(r, "show", genres));
 }
 
+interface RawTmdbSingle {
+  id: number;
+  title?: string;
+  name?: string;
+  release_date?: string;
+  first_air_date?: string;
+  poster_path?: string;
+  backdrop_path?: string;
+  vote_average?: number;
+  genres?: { id: number; name: string }[];
+}
+
+// A single, light fetch (no credits/similar) for building a tile from a bare tmdb id -
+// used for Trakt watchlist/recommendations, which hand back ids rather than full metadata.
+export async function getBasicItem(tmdbId: number, type: "movie" | "show"): Promise<TmdbItem | null> {
+  try {
+    const path = type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`;
+    const raw = await tmdbFetch<RawTmdbSingle>(path);
+    const dateStr = raw.release_date || raw.first_air_date;
+    return {
+      id: raw.id,
+      title: (raw.title ?? raw.name ?? "").trim(),
+      year: dateStr ? Number(dateStr.slice(0, 4)) : undefined,
+      poster: raw.poster_path ? `${POSTER_BASE}${raw.poster_path}` : undefined,
+      backdrop: raw.backdrop_path ? `${BACKDROP_BASE}${raw.backdrop_path}` : undefined,
+      genre: raw.genres?.[0]?.name,
+      ratingPercent: raw.vote_average ? Math.round(raw.vote_average * 10) : undefined,
+      type,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface TmdbCastMember {
   name: string;
   character: string;

@@ -11,6 +11,7 @@ import { streamRoutes } from "./routes/stream.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { popularRoutes } from "./routes/popular.js";
 import { detailsRoutes } from "./routes/details.js";
+import { traktRoutes } from "./routes/trakt.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -34,6 +35,7 @@ async function main() {
   await app.register(liveRoutes);
   await app.register(streamRoutes);
   await app.register(detailsRoutes);
+  await app.register(traktRoutes);
 
   const webDist = path.join(__dirname, "../../web/dist");
   await app.register(fastifyStatic, { root: webDist, wildcard: false });

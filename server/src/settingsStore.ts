@@ -28,11 +28,20 @@ export interface TmdbSettings {
   accessToken: string;
 }
 
+export interface TraktSettings {
+  clientId: string;
+  clientSecret: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
 interface Settings {
   plex?: PlexSettings;
   silo?: SiloSettings;
   xtream?: XtreamSettings;
   tmdb?: TmdbSettings;
+  trakt?: TraktSettings;
 }
 
 let cache: Settings | null = null;
@@ -97,6 +106,23 @@ export const settingsStore = {
     delete load().tmdb;
     persist();
   },
+  getTrakt(): TraktSettings | undefined {
+    return load().trakt;
+  },
+  setTrakt(trakt: TraktSettings) {
+    load().trakt = trakt;
+    persist();
+  },
+  updateTrakt(patch: Partial<TraktSettings>) {
+    const existing = load().trakt;
+    if (!existing) return;
+    load().trakt = { ...existing, ...patch };
+    persist();
+  },
+  clearTrakt() {
+    delete load().trakt;
+    persist();
+  },
   status() {
     const s = load();
     return {
@@ -104,13 +130,17 @@ export const settingsStore = {
       silo: Boolean(s.silo),
       xtream: Boolean(s.xtream),
       tmdb: Boolean(s.tmdb),
+      trakt: Boolean(s.trakt?.accessToken),
+      traktConfigured: Boolean(s.trakt),
       plexServerName: s.plex?.serverName,
+      siloBaseUrl: s.silo?.baseUrl,
+      xtreamBaseUrl: s.xtream?.baseUrl,
     };
   },
 };
 
 export class NotConfiguredError extends Error {
-  constructor(public service: "plex" | "silo" | "xtream" | "tmdb") {
+  constructor(public service: "plex" | "silo" | "xtream" | "tmdb" | "trakt") {
     super(`${service} is not configured yet`);
   }
 }

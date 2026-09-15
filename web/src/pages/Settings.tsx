@@ -4,13 +4,18 @@ import {
   disconnectPlex,
   disconnectSilo,
   disconnectTmdb,
+  disconnectTrakt,
   disconnectXtream,
   fetchSettingsStatus,
   pollPlexLink,
+  pollTraktLink,
   saveSilo,
   saveTmdb,
+  saveTrakt,
   saveXtream,
   startPlexLink,
+  startTraktLink,
+  testConnection,
 } from "../api.js";
 
 type PlexLinkState =
@@ -18,7 +23,13 @@ type PlexLinkState =
   | { phase: "waiting"; code: string; pinId: number }
   | { phase: "error"; message: string };
 
+type TraktLinkState =
+  | { phase: "idle" }
+  | { phase: "waiting"; userCode: string; verificationUrl: string }
+  | { phase: "error"; message: string };
+
 const PLEX_LINK_TIMEOUT_MS = 10 * 60 * 1000;
+const TRAKT_LINK_TIMEOUT_MS = 10 * 60 * 1000;
 
 function CredentialForm({
   title,
@@ -125,10 +136,86 @@ function TokenForm({
   );
 }
 
+function ClientCredentialForm({
+  description,
+  onSubmit,
+}: {
+  description: string;
+  onSubmit: (clientId: string, clientSecret: string) => Promise<void>;
+}) {
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await onSubmit(clientId, clientSecret);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="settings-form" onSubmit={handleSubmit}>
+      <p className="settings-desc">{description}</p>
+      <label>
+        Client ID
+        <input type="text" value={clientId} onChange={(e) => setClientId(e.target.value)} required />
+      </label>
+      <label>
+        Client Secret
+        <input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} required />
+      </label>
+      {error && <div className="settings-error">{error}</div>}
+      <button type="submit" disabled={saving}>
+        {saving ? "Checking…" : "Save"}
+      </button>
+    </form>
+  );
+}
+
+function TestConnectionButton({ service }: { service: "plex" | "silo" | "xtream" | "tmdb" | "trakt" }) {
+  const [state, setState] = useState<"idle" | "testing" | "ok" | "error">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+  const resetRef = useRef<number | null>(null);
+
+  async function runTest() {
+    setState("testing");
+    setMessage(null);
+    if (resetRef.current) window.clearTimeout(resetRef.current);
+    try {
+      await testConnection(service);
+      setState("ok");
+    } catch (err) {
+      setState("error");
+      setMessage((err as Error).message);
+    }
+    resetRef.current = window.setTimeout(() => setState("idle"), 5000);
+  }
+
+  return (
+    <div className="test-connection">
+      <button className="secondary" onClick={runTest} disabled={state === "testing"}>
+        {state === "testing" ? "Testing…" : "Test Connection"}
+      </button>
+      {state === "ok" && <span className="test-connection-ok">Working</span>}
+      {state === "error" && <span className="test-connection-error">{message ?? "Failed"}</span>}
+    </div>
+  );
+}
+
 export default function Settings() {
   const [status, setStatus] = useState<SettingsStatus | null>(null);
   const [plexLink, setPlexLink] = useState<PlexLinkState>({ phase: "idle" });
-  const pollRef = useRef<number | null>(null);
+  const [traktLink, setTraktLink] = useState<TraktLinkState>({ phase: "idle" });
+  const plexPollRef = useRef<number | null>(null);
+  const traktPollRef = useRef<number | null>(null);
 
   function refreshStatus() {
     fetchSettingsStatus().then(setStatus);
@@ -137,7 +224,8 @@ export default function Settings() {
   useEffect(() => {
     refreshStatus();
     return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
+      if (plexPollRef.current) window.clearInterval(plexPollRef.current);
+      if (traktPollRef.current) window.clearInterval(traktPollRef.current);
     };
   }, []);
 
@@ -151,26 +239,57 @@ export default function Settings() {
       // starts linking and then walks away without ever finishing the plex.tv/link step.
       const deadline = Date.now() + PLEX_LINK_TIMEOUT_MS;
 
-      pollRef.current = window.setInterval(async () => {
+      plexPollRef.current = window.setInterval(async () => {
         if (Date.now() > deadline) {
-          if (pollRef.current) window.clearInterval(pollRef.current);
+          if (plexPollRef.current) window.clearInterval(plexPollRef.current);
           setPlexLink({ phase: "error", message: "Link request timed out. Try again." });
           return;
         }
         try {
           const result = await pollPlexLink(pinId);
           if (result.linked) {
-            if (pollRef.current) window.clearInterval(pollRef.current);
+            if (plexPollRef.current) window.clearInterval(plexPollRef.current);
             setPlexLink({ phase: "idle" });
             refreshStatus();
           }
         } catch (err) {
-          if (pollRef.current) window.clearInterval(pollRef.current);
+          if (plexPollRef.current) window.clearInterval(plexPollRef.current);
           setPlexLink({ phase: "error", message: (err as Error).message });
         }
       }, 2000);
     } catch (err) {
       setPlexLink({ phase: "error", message: (err as Error).message });
+    }
+  }
+
+  async function beginTraktLink() {
+    setTraktLink({ phase: "waiting", userCode: "", verificationUrl: "" });
+    try {
+      const { userCode, verificationUrl, interval } = await startTraktLink();
+      setTraktLink({ phase: "waiting", userCode, verificationUrl });
+
+      const deadline = Date.now() + TRAKT_LINK_TIMEOUT_MS;
+
+      traktPollRef.current = window.setInterval(async () => {
+        if (Date.now() > deadline) {
+          if (traktPollRef.current) window.clearInterval(traktPollRef.current);
+          setTraktLink({ phase: "error", message: "Link request timed out. Try again." });
+          return;
+        }
+        try {
+          const result = await pollTraktLink();
+          if (result.linked) {
+            if (traktPollRef.current) window.clearInterval(traktPollRef.current);
+            setTraktLink({ phase: "idle" });
+            refreshStatus();
+          }
+        } catch (err) {
+          if (traktPollRef.current) window.clearInterval(traktPollRef.current);
+          setTraktLink({ phase: "error", message: (err as Error).message });
+        }
+      }, Math.max(interval, 3) * 1000);
+    } catch (err) {
+      setTraktLink({ phase: "error", message: (err as Error).message });
     }
   }
 
@@ -186,12 +305,12 @@ export default function Settings() {
           {status.plex && <span className="badge connected">Connected{status.plexServerName ? ` · ${status.plexServerName}` : ""}</span>}
         </div>
         {status.plex ? (
-          <button
-            className="secondary"
-            onClick={() => disconnectPlex().then(refreshStatus)}
-          >
-            Disconnect
-          </button>
+          <div className="settings-actions">
+            <TestConnectionButton service="plex" />
+            <button className="secondary" onClick={() => disconnectPlex().then(refreshStatus)}>
+              Disconnect
+            </button>
+          </div>
         ) : plexLink.phase === "waiting" ? (
           <div className="plex-link">
             {plexLink.code ? (
@@ -227,11 +346,15 @@ export default function Settings() {
         {status.silo ? (
           <>
             <p className="settings-desc">
-              Movies from Silo now appear in On Demand. TV shows aren't supported yet.
+              {status.siloBaseUrl ? `${status.siloBaseUrl} · ` : ""}
+              Movies from Silo appear in On Demand. TV shows aren't supported yet.
             </p>
-            <button className="secondary" onClick={() => disconnectSilo().then(refreshStatus)}>
-              Disconnect
-            </button>
+            <div className="settings-actions">
+              <TestConnectionButton service="silo" />
+              <button className="secondary" onClick={() => disconnectSilo().then(refreshStatus)}>
+                Disconnect
+              </button>
+            </div>
           </>
         ) : (
           <CredentialForm
@@ -251,9 +374,15 @@ export default function Settings() {
           {status.xtream && <span className="badge connected">Connected</span>}
         </div>
         {status.xtream ? (
-          <button className="secondary" onClick={() => disconnectXtream().then(refreshStatus)}>
-            Disconnect
-          </button>
+          <>
+            {status.xtreamBaseUrl && <p className="settings-desc">{status.xtreamBaseUrl}</p>}
+            <div className="settings-actions">
+              <TestConnectionButton service="xtream" />
+              <button className="secondary" onClick={() => disconnectXtream().then(refreshStatus)}>
+                Disconnect
+              </button>
+            </div>
+          </>
         ) : (
           <CredentialForm
             title="Xtream Codes"
@@ -274,9 +403,12 @@ export default function Settings() {
         {status.tmdb ? (
           <>
             <p className="settings-desc">Powers the Popular Movies and Popular Shows shelves on On Demand.</p>
-            <button className="secondary" onClick={() => disconnectTmdb().then(refreshStatus)}>
-              Disconnect
-            </button>
+            <div className="settings-actions">
+              <TestConnectionButton service="tmdb" />
+              <button className="secondary" onClick={() => disconnectTmdb().then(refreshStatus)}>
+                Disconnect
+              </button>
+            </div>
           </>
         ) : (
           <TokenForm
@@ -289,6 +421,75 @@ export default function Settings() {
             }}
           />
         )}
+      </section>
+
+      <section className="settings-card settings-card-trakt">
+        <div className="settings-card-header">
+          <h2>Trakt</h2>
+          {status.trakt && <span className="badge connected">Connected</span>}
+          {!status.trakt && status.traktConfigured && <span className="badge">Not linked</span>}
+        </div>
+        {status.trakt ? (
+          <>
+            <p className="settings-desc">
+              Adds Trakt ratings and reviews to the detail page, plus your Watchlist and personal
+              recommendations as shelves on On Demand.
+            </p>
+            <div className="settings-actions">
+              <TestConnectionButton service="trakt" />
+              <button
+                className="secondary"
+                onClick={() => disconnectTrakt().then(refreshStatus)}
+              >
+                Disconnect
+              </button>
+            </div>
+          </>
+        ) : status.traktConfigured ? (
+          traktLink.phase === "waiting" ? (
+            <div className="plex-link">
+              {traktLink.userCode ? (
+                <>
+                  <p>
+                    1. Open{" "}
+                    <a href={traktLink.verificationUrl || "https://trakt.tv/activate"} target="_blank" rel="noreferrer">
+                      {traktLink.verificationUrl || "trakt.tv/activate"}
+                    </a>
+                  </p>
+                  <p>
+                    2. Enter this code: <strong className="link-code">{traktLink.userCode}</strong>
+                  </p>
+                  <p className="settings-desc">Waiting for you to authorize…</p>
+                </>
+              ) : (
+                <p className="settings-desc">Starting link request…</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="settings-desc">Client ID and Secret saved. Now link your Trakt account.</p>
+              <button onClick={beginTraktLink}>Link Trakt Account</button>
+              <button
+                className="secondary"
+                onClick={() => disconnectTrakt().then(refreshStatus)}
+                style={{ marginLeft: 10 }}
+              >
+                Start Over
+              </button>
+            </>
+          )
+        ) : (
+          <ClientCredentialForm
+            description={
+              "Register a free API app at trakt.tv/oauth/applications (redirect URI urn:ietf:wg:oauth:2.0:oob), then paste its Client ID and Secret here."
+            }
+            onSubmit={async (clientId, clientSecret) => {
+              await saveTrakt(clientId, clientSecret);
+              refreshStatus();
+            }}
+          />
+        )}
+        {traktLink.phase === "error" && <div className="settings-error">{traktLink.message}</div>}
       </section>
     </div>
   );

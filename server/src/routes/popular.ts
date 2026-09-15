@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
 import { cached } from "../cache.js";
 import { getPopularMovies, getPopularShows, TmdbItem } from "../clients/tmdb.js";
-import { searchOwnedLibrary } from "../library.js";
+import { attachOwnership, searchOwnedLibrary } from "../library.js";
 import { matchKey } from "../merge.js";
 import { NotConfiguredError } from "../settingsStore.js";
 
@@ -30,32 +30,6 @@ function toPopularItem(t: TmdbItem): PopularItem {
     ratingPercent: t.ratingPercent,
     sources: [],
   };
-}
-
-// Each title's ownership check is a live, targeted Plex/Silo search (the same one GET
-// /api/match uses) - never a full-library scan. The Popular shelves hold 25 movies + 25
-// shows, and this whole batch is wrapped in the same cache as the TMDB list itself, so it
-// runs at most once per cache window no matter how many people load the page. A small
-// concurrency cap just keeps that one-time batch from bursting all 50 lookups at once
-// against Plex/Silo.
-const MATCH_CONCURRENCY = 4;
-
-async function attachOwnership(items: PopularItem[]): Promise<void> {
-  let next = 0;
-  async function worker() {
-    while (next < items.length) {
-      const item = items[next++];
-      try {
-        const { merged } = await searchOwnedLibrary(item.title);
-        const targetKey = matchKey(item.title, item.year);
-        const match = merged.find((m) => matchKey(m.title, m.year) === targetKey);
-        if (match) item.sources = match.sources;
-      } catch {
-        // Leave unmatched on any lookup failure - the tile just shows as not-in-library.
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: MATCH_CONCURRENCY }, worker));
 }
 
 export async function popularRoutes(app: FastifyInstance) {

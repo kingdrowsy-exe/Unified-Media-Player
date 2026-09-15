@@ -2,7 +2,14 @@ import type { FastifyInstance } from "fastify";
 import { settingsStore } from "../settingsStore.js";
 import { checkPin, createPin, resolveServerFromAuthToken } from "../clients/plexLink.js";
 import { resetSiloSession } from "../clients/silo.js";
+import {
+  createDeviceCode,
+  pollDeviceToken,
+  validateClientId as validateTraktClientId,
+  verifyAccountLink as verifyTraktAccountLink,
+} from "../clients/trakt.js";
 import { bustCache } from "../cache.js";
+import { listSections } from "../clients/plex.js";
 
 interface PendingPin {
   id: number;
@@ -10,6 +17,13 @@ interface PendingPin {
 }
 
 let pendingPin: PendingPin | null = null;
+
+interface PendingTraktDevice {
+  deviceCode: string;
+  createdAt: number;
+}
+
+let pendingTraktDevice: PendingTraktDevice | null = null;
 
 async function validateSilo(baseUrl: string, username: string, password: string) {
   const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/v1/auth/login`, {
@@ -75,6 +89,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     resetSiloSession();
     bustCache("ondemand:");
     bustCache("popular:");
+    bustCache("trakt:");
     return { ok: true };
   });
 
@@ -83,6 +98,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     resetSiloSession();
     bustCache("ondemand:");
     bustCache("popular:");
+    bustCache("trakt:");
     return { ok: true };
   });
 
@@ -136,6 +152,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       pendingPin = null;
       bustCache("ondemand:");
       bustCache("popular:");
+      bustCache("trakt:");
       return { linked: true, serverName: server.serverName };
     } catch (err) {
       return reply.code(400).send({ error: (err as Error).message });
@@ -146,6 +163,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     settingsStore.clearPlex();
     bustCache("ondemand:");
     bustCache("popular:");
+    bustCache("trakt:");
     return { ok: true };
   });
 
@@ -161,12 +179,122 @@ export async function settingsRoutes(app: FastifyInstance) {
     }
     settingsStore.setTmdb({ accessToken });
     bustCache("popular:");
+    bustCache("trakt:");
+    bustCache("details:");
     return { ok: true };
   });
 
   app.delete("/api/settings/tmdb", async () => {
     settingsStore.clearTmdb();
     bustCache("popular:");
+    bustCache("trakt:");
+    bustCache("details:");
     return { ok: true };
+  });
+
+  app.post("/api/settings/trakt", async (request, reply) => {
+    const { clientId, clientSecret } = request.body as { clientId?: string; clientSecret?: string };
+    if (!clientId || !clientSecret) {
+      return reply.code(400).send({ error: "clientId and clientSecret are required" });
+    }
+    try {
+      await validateTraktClientId(clientId);
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
+    settingsStore.setTrakt({ clientId, clientSecret });
+    return { ok: true };
+  });
+
+  app.delete("/api/settings/trakt", async () => {
+    settingsStore.clearTrakt();
+    pendingTraktDevice = null;
+    bustCache("trakt:");
+    bustCache("details:");
+    return { ok: true };
+  });
+
+  app.post("/api/settings/trakt/link/start", async (_request, reply) => {
+    const trakt = settingsStore.getTrakt();
+    if (!trakt) {
+      return reply.code(409).send({ error: "Save a Trakt Client ID and Secret first" });
+    }
+    const device = await createDeviceCode(trakt.clientId);
+    pendingTraktDevice = { deviceCode: device.deviceCode, createdAt: Date.now() };
+    return {
+      userCode: device.userCode,
+      verificationUrl: device.verificationUrl,
+      interval: device.interval,
+      expiresIn: device.expiresIn,
+    };
+  });
+
+  app.get("/api/settings/trakt/link/status", async (_request, reply) => {
+    const trakt = settingsStore.getTrakt();
+    if (!trakt || !pendingTraktDevice) {
+      return reply.code(400).send({ error: "No pending Trakt link request" });
+    }
+    try {
+      const tokens = await pollDeviceToken(trakt.clientId, trakt.clientSecret, pendingTraktDevice.deviceCode);
+      if (!tokens) {
+        return { linked: false };
+      }
+      settingsStore.updateTrakt(tokens);
+      pendingTraktDevice = null;
+      bustCache("trakt:");
+      bustCache("details:");
+      return { linked: true };
+    } catch (err) {
+      pendingTraktDevice = null;
+      return reply.code(400).send({ error: (err as Error).message });
+    }
+  });
+
+  // Re-runs each service's own login check against whatever is already saved, so a
+  // previously-connected service that's since gone stale (expired token, changed
+  // password, server moved) can be surfaced without waiting for something else to break.
+  app.post("/api/settings/:service/test", async (request, reply) => {
+    const { service } = request.params as { service: string };
+    try {
+      switch (service) {
+        case "plex": {
+          const plex = settingsStore.getPlex();
+          if (!plex) return reply.code(409).send({ error: "Plex isn't connected" });
+          await listSections();
+          return { ok: true };
+        }
+        case "silo": {
+          const silo = settingsStore.getSilo();
+          if (!silo) return reply.code(409).send({ error: "Silo isn't connected" });
+          await validateSilo(silo.baseUrl, silo.username, silo.password);
+          return { ok: true };
+        }
+        case "xtream": {
+          const xtream = settingsStore.getXtream();
+          if (!xtream) return reply.code(409).send({ error: "Xtream isn't connected" });
+          await validateXtream(xtream.baseUrl, xtream.username, xtream.password);
+          return { ok: true };
+        }
+        case "tmdb": {
+          const tmdb = settingsStore.getTmdb();
+          if (!tmdb) return reply.code(409).send({ error: "TMDB isn't connected" });
+          await validateTmdb(tmdb.accessToken);
+          return { ok: true };
+        }
+        case "trakt": {
+          const trakt = settingsStore.getTrakt();
+          if (!trakt) return reply.code(409).send({ error: "Trakt isn't connected" });
+          if (!trakt.accessToken) {
+            return reply.code(409).send({ error: "Trakt account isn't linked yet" });
+          }
+          await verifyTraktAccountLink();
+          return { ok: true };
+        }
+        default:
+          return reply.code(400).send({ error: `Unknown service: ${service}` });
+      }
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
+    }
   });
 }

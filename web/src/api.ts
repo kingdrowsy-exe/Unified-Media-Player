@@ -30,7 +30,11 @@ export interface SettingsStatus {
   silo: boolean;
   xtream: boolean;
   tmdb: boolean;
+  trakt: boolean;
+  traktConfigured: boolean;
   plexServerName?: string;
+  siloBaseUrl?: string;
+  xtreamBaseUrl?: string;
 }
 
 export interface PopularItem {
@@ -127,6 +131,21 @@ export interface TmdbCastMember {
   profilePath?: string;
 }
 
+export interface TraktRatingInfo {
+  rating: number;
+  votes: number;
+}
+
+export interface TraktComment {
+  id: number;
+  comment: string;
+  spoiler: boolean;
+  review: boolean;
+  createdAt: string;
+  likes: number;
+  username: string;
+}
+
 export interface TmdbDetails {
   id: number;
   title: string;
@@ -142,6 +161,8 @@ export interface TmdbDetails {
   cast: TmdbCastMember[];
   similar: { id: number; title: string; year?: number; poster?: string; type: "movie" | "show"; genre?: string; ratingPercent?: number }[];
   type: "movie" | "show";
+  traktRating: TraktRatingInfo | null;
+  traktComments: TraktComment[];
 }
 
 export interface SourceVersion {
@@ -216,4 +237,37 @@ export function pollPlexLink(pinId: number): Promise<{ linked: boolean; serverNa
   const url = new URL("/api/settings/plex/link/status", window.location.origin);
   url.searchParams.set("pinId", String(pinId));
   return getJson(url.toString());
+}
+
+export function saveTrakt(clientId: string, clientSecret: string): Promise<{ ok: true }> {
+  return postJson("/api/settings/trakt", { clientId, clientSecret });
+}
+
+export function disconnectTrakt(): Promise<{ ok: true }> {
+  return deleteJson("/api/settings/trakt");
+}
+
+export function startTraktLink(): Promise<{
+  userCode: string;
+  verificationUrl: string;
+  interval: number;
+  expiresIn: number;
+}> {
+  return postJson("/api/settings/trakt/link/start");
+}
+
+export function pollTraktLink(): Promise<{ linked: boolean }> {
+  return getJson("/api/settings/trakt/link/status");
+}
+
+export function testConnection(service: "plex" | "silo" | "xtream" | "tmdb" | "trakt"): Promise<{ ok: true }> {
+  return postJson(`/api/settings/${service}/test`);
+}
+
+export function fetchTraktWatchlist(): Promise<{ items: PopularItem[]; configured: boolean }> {
+  return getJson("/api/trakt/watchlist");
+}
+
+export function fetchTraktRecommendations(): Promise<{ items: PopularItem[]; configured: boolean }> {
+  return getJson("/api/trakt/recommendations");
 }

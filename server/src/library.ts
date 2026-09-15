@@ -2,7 +2,7 @@ import { config } from "./config.js";
 import { cached } from "./cache.js";
 import { listPopularLibraryItems, PlexItem, searchLibraryItems as searchPlexItems } from "./clients/plex.js";
 import { listSiloItems, searchSiloItems, SiloItem } from "./clients/silo.js";
-import { mergeLibraries, MergedItem } from "./merge.js";
+import { mergeLibraries, matchKey, MergedItem } from "./merge.js";
 import { NotConfiguredError } from "./settingsStore.js";
 
 async function safeList<T>(fn: () => Promise<T[]>): Promise<{ items: T[]; configured: boolean }> {
@@ -49,4 +49,35 @@ export async function searchOwnedLibrary(query: string): Promise<OwnedLibrary> {
     merged: mergeLibraries(plex.items, silo.items),
     sources: { plex: plex.configured, silo: silo.configured },
   };
+}
+
+interface OwnableItem {
+  title: string;
+  year?: number;
+  sources: { source: "plex" | "silo"; id: string }[];
+}
+
+// Shared by /api/popular and /api/trakt/* (watchlist, recommendations): each title's
+// ownership check is a live, targeted Plex/Silo search (the same one GET /api/match uses),
+// never a full-library scan. Callers wrap this in their own cache so a given batch of
+// titles only actually runs once per cache window. A small concurrency cap just keeps
+// that one-time batch from bursting every lookup at Plex/Silo simultaneously.
+const MATCH_CONCURRENCY = 4;
+
+export async function attachOwnership<T extends OwnableItem>(items: T[]): Promise<void> {
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const item = items[next++];
+      try {
+        const { merged } = await searchOwnedLibrary(item.title);
+        const targetKey = matchKey(item.title, item.year);
+        const match = merged.find((m) => matchKey(m.title, m.year) === targetKey);
+        if (match) item.sources = match.sources;
+      } catch {
+        // Leave unmatched on any lookup failure - the tile just shows as not-in-library.
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: MATCH_CONCURRENCY }, worker));
 }

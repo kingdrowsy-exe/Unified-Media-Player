@@ -3,6 +3,7 @@ import { cached } from "../cache.js";
 import { getMovieDetails, getTvDetails } from "../clients/tmdb.js";
 import { getPlexMediaVersions, PlexMediaVersion } from "../clients/plex.js";
 import { getSiloMediaVersions, SiloMediaVersion } from "../clients/silo.js";
+import { getRatingAndComments } from "../clients/trakt.js";
 import { searchOwnedLibrary } from "../library.js";
 import { matchKey } from "../merge.js";
 import { NotConfiguredError } from "../settingsStore.js";
@@ -196,9 +197,16 @@ export async function detailsRoutes(app: FastifyInstance) {
     if (!tmdbId || (type !== "movie" && type !== "show")) {
       return { error: "Invalid type or id" };
     }
-    return cached(`details:${type}:${tmdbId}`, 300, () =>
-      type === "movie" ? getMovieDetails(tmdbId) : getTvDetails(tmdbId),
-    );
+    return cached(`details:${type}:${tmdbId}`, 300, async () => {
+      const tmdb = await (type === "movie" ? getMovieDetails(tmdbId) : getTvDetails(tmdbId));
+      try {
+        const { rating, comments } = await getRatingAndComments(tmdbId, type);
+        return { ...tmdb, traktRating: rating, traktComments: comments };
+      } catch {
+        // Trakt not configured or unreachable - the page still works with TMDB data alone.
+        return { ...tmdb, traktRating: null, traktComments: [] };
+      }
+    });
   });
 
   app.get("/api/sources", async (request) => {

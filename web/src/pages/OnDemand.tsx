@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { PopularItem, fetchPopular } from "../api.js";
+import { PopularItem, fetchPopular, fetchTraktRecommendations, fetchTraktWatchlist } from "../api.js";
 import MovieDetail from "../components/MovieDetail.js";
 import Hero, { HeroItem } from "../components/Hero.js";
 import Shelf from "../components/Shelf.js";
@@ -22,6 +22,8 @@ export default function OnDemand() {
   const [popularMovies, setPopularMovies] = useState<PopularItem[]>([]);
   const [popularShows, setPopularShows] = useState<PopularItem[]>([]);
   const [tmdbConfigured, setTmdbConfigured] = useState<boolean | null>(null);
+  const [watchlist, setWatchlist] = useState<PopularItem[]>([]);
+  const [recommendations, setRecommendations] = useState<PopularItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<PopularItem | null>(null);
 
   useEffect(() => {
@@ -32,6 +34,12 @@ export default function OnDemand() {
         setTmdbConfigured(res.configured);
       })
       .catch(() => setTmdbConfigured(false));
+    fetchTraktWatchlist()
+      .then((res) => setWatchlist(res.items))
+      .catch(() => setWatchlist([]));
+    fetchTraktRecommendations()
+      .then((res) => setRecommendations(res.items))
+      .catch(() => setRecommendations([]));
   }, []);
 
   function handleSelectSimilar(tmdbId: number, type: "movie" | "show") {
@@ -80,6 +88,8 @@ export default function OnDemand() {
         </div>
       )}
 
+      {watchlist.length > 0 && <Shelf title="Your Trakt Watchlist">{watchlist.map(renderTile)}</Shelf>}
+      {recommendations.length > 0 && <Shelf title="Recommended for You">{recommendations.map(renderTile)}</Shelf>}
       {popularMovies.length > 0 && <Shelf title="Popular Movies">{popularMovies.map(renderTile)}</Shelf>}
       {popularShows.length > 0 && <Shelf title="Popular Shows">{popularShows.map(renderTile)}</Shelf>}
 
