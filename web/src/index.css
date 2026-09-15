@@ -11,6 +11,11 @@
   --plex-color: #e5a00d;
   --silo-color: #2dd4bf;
   --gold: #f5c518;
+  --ambient-glow: radial-gradient(ellipse 1150px 780px at 6% -12%, rgba(139, 92, 246, 0.32), transparent 58%),
+    radial-gradient(ellipse 1150px 880px at 98% -8%, rgba(10, 132, 255, 0.26), transparent 58%),
+    radial-gradient(ellipse 950px 750px at 104% 58%, rgba(45, 212, 191, 0.16), transparent 62%),
+    radial-gradient(ellipse 1000px 780px at -4% 62%, rgba(229, 160, 13, 0.1), transparent 60%),
+    radial-gradient(ellipse 1350px 950px at 46% 118%, rgba(139, 92, 246, 0.18), transparent 65%);
   font-family: -apple-system, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
 }
 
@@ -28,10 +33,7 @@ body {
   margin: 0;
   color: var(--text);
   background-color: var(--bg);
-  background-image:
-    radial-gradient(ellipse 900px 620px at 12% -8%, rgba(139, 92, 246, 0.18), transparent 60%),
-    radial-gradient(ellipse 900px 700px at 92% 8%, rgba(10, 132, 255, 0.13), transparent 60%),
-    radial-gradient(ellipse 1100px 800px at 50% 105%, rgba(45, 212, 191, 0.07), transparent 65%);
+  background-image: var(--ambient-glow);
   background-repeat: no-repeat;
 }
 
@@ -1605,10 +1607,7 @@ button.secondary {
   z-index: 90;
   overflow: hidden;
   background-color: var(--bg);
-  background-image:
-    radial-gradient(ellipse 900px 620px at 12% -8%, rgba(139, 92, 246, 0.18), transparent 60%),
-    radial-gradient(ellipse 900px 700px at 92% 8%, rgba(10, 132, 255, 0.13), transparent 60%),
-    radial-gradient(ellipse 1100px 800px at 50% 105%, rgba(45, 212, 191, 0.07), transparent 65%);
+  background-image: var(--ambient-glow);
   background-repeat: no-repeat;
 }
 
