@@ -235,6 +235,7 @@ export default function MovieDetail({ item, onClose, onSelectSimilar }: MovieDet
           src={playingSrc}
           title={displayTitle}
           subtitle={metaParts.join(" · ") || undefined}
+          durationHint={details?.runtime ? details.runtime * 60 : undefined}
           onClose={() => setPlayingSrc(null)}
         />
       )}

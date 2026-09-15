@@ -8,6 +8,13 @@ interface PlayerProps {
   onClose: () => void;
   /** Live IPTV streams are HLS (.m3u8) and need hls.js; Plex/Silo direct-play files can be set as the video src as-is. */
   isHls?: boolean;
+  /**
+   * Known runtime in seconds (e.g. from TMDB), used in place of the video element's own
+   * `duration`. Some sources - notably Silo, proxied without Range support and served as a
+   * progressive download with no upfront moov atom - report a `duration` that only reflects
+   * how much has downloaded so far rather than the real length of the file.
+   */
+  durationHint?: number;
 }
 
 const CONTROLS_HIDE_DELAY = 2800;
@@ -86,7 +93,7 @@ function formatTime(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-export default function Player({ src, title, subtitle, onClose, isHls = false }: PlayerProps) {
+export default function Player({ src, title, subtitle, onClose, isHls = false, durationHint }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hideTimer = useRef<number | null>(null);
@@ -103,6 +110,9 @@ export default function Player({ src, title, subtitle, onClose, isHls = false }:
   const [showControls, setShowControls] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [flashIcon, setFlashIcon] = useState<"play" | "pause" | null>(null);
+
+  // Prefer the known runtime over the video element's own (possibly unreliable) duration.
+  const effectiveDuration = durationHint && durationHint > 0 ? durationHint : duration;
 
   const scheduleHide = useCallback(() => {
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -201,7 +211,7 @@ export default function Player({ src, title, subtitle, onClose, isHls = false }:
     const video = videoRef.current;
     if (!video) return target;
     const seekable = video.seekable;
-    if (seekable.length === 0) return Math.min(Math.max(target, 0), duration || Infinity);
+    if (seekable.length === 0) return Math.min(Math.max(target, 0), effectiveDuration || Infinity);
     return Math.min(Math.max(target, seekable.start(0)), seekable.end(seekable.length - 1));
   }
 
@@ -214,8 +224,8 @@ export default function Player({ src, title, subtitle, onClose, isHls = false }:
 
   function seekTo(fraction: number) {
     const video = videoRef.current;
-    if (!video || !duration) return;
-    video.currentTime = clampToSeekable(Math.min(Math.max(fraction, 0), 1) * duration);
+    if (!video || !effectiveDuration) return;
+    video.currentTime = clampToSeekable(Math.min(Math.max(fraction, 0), 1) * effectiveDuration);
   }
 
   function toggleMute() {
@@ -277,7 +287,7 @@ export default function Player({ src, title, subtitle, onClose, isHls = false }:
       window.removeEventListener("mouseup", onUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seeking, duration]);
+  }, [seeking, effectiveDuration]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -312,8 +322,8 @@ export default function Player({ src, title, subtitle, onClose, isHls = false }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });
 
-  const progressFraction = duration > 0 ? currentTime / duration : 0;
-  const bufferedFraction = duration > 0 ? bufferedEnd / duration : 0;
+  const progressFraction = effectiveDuration > 0 ? currentTime / effectiveDuration : 0;
+  const bufferedFraction = effectiveDuration > 0 ? bufferedEnd / effectiveDuration : 0;
 
   return (
     <div
@@ -354,21 +364,34 @@ export default function Player({ src, title, subtitle, onClose, isHls = false }:
       )}
 
       <div className="vplayer-top-bar">
-        <button className="vplayer-back" onClick={handleClose} aria-label="Close">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <div className="vplayer-top-left">
+          <button className="vplayer-icon-btn" onClick={handleClose} aria-label="Back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M15 18l-6-6 6-6"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <div className="vplayer-top-text">
+            <div className="vplayer-top-title">{title}</div>
+            {subtitle && <div className="vplayer-top-subtitle">{subtitle}</div>}
+          </div>
+        </div>
+        <button className="vplayer-icon-btn" onClick={handleClose} aria-label="Exit player">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path
-              d="M15 18l-6-6 6-6"
+              d="M6 6l12 12M18 6L6 18"
               stroke="currentColor"
-              strokeWidth="2.2"
+              strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
         </button>
-        <div className="vplayer-top-text">
-          <div className="vplayer-top-title">{title}</div>
-          {subtitle && <div className="vplayer-top-subtitle">{subtitle}</div>}
-        </div>
       </div>
 
       {!error && (
@@ -394,7 +417,7 @@ export default function Player({ src, title, subtitle, onClose, isHls = false }:
                 <Forward10Icon />
               </button>
               <div className="vplayer-time">
-                {formatTime(currentTime)} <span className="vplayer-time-sep">/</span> {formatTime(duration)}
+                {formatTime(currentTime)} <span className="vplayer-time-sep">/</span> {formatTime(effectiveDuration)}
               </div>
             </div>
 
