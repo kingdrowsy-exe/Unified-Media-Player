@@ -1,8 +1,8 @@
 import { NotConfiguredError, settingsStore } from "../settingsStore.js";
 
 const API_BASE = "https://api.themoviedb.org/3";
-const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
-const BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280";
+const POSTER_BASE = "https://image.tmdb.org/t/p/w500";
+const BACKDROP_BASE = "https://image.tmdb.org/t/p/original";
 const PROFILE_BASE = "https://image.tmdb.org/t/p/w185";
 
 export interface TmdbItem {

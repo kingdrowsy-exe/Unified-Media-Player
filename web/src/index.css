@@ -164,14 +164,19 @@ a {
 
 .hero {
   position: relative;
-  height: 52vw;
-  max-height: 520px;
-  min-height: 300px;
-  margin: 0 -4vw 40px;
-  border-radius: 0 0 20px 20px;
+  height: 50vw;
+  max-height: 500px;
+  min-height: 280px;
+  margin: 20px 0 44px;
+  border-radius: 26px;
   overflow: hidden;
   display: flex;
   align-items: flex-end;
+  box-shadow:
+    0 40px 70px -24px rgba(0, 0, 0, 0.65),
+    0 14px 32px -10px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  transform: translateZ(0);
 }
 
 .hero-bg {
@@ -208,7 +213,7 @@ a {
 .hero-content {
   position: relative;
   z-index: 4;
-  padding: 0 4vw 40px;
+  padding: 0 clamp(20px, 4vw, 44px) 36px;
   max-width: 620px;
 }
 
@@ -296,7 +301,7 @@ a {
 
 .hero-dots {
   position: absolute;
-  right: 4vw;
+  right: clamp(20px, 4vw, 44px);
   bottom: 20px;
   z-index: 5;
   display: flex;
