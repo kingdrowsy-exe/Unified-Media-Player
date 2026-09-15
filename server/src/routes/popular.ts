@@ -33,11 +33,11 @@ function toPopularItem(t: TmdbItem): PopularItem {
 }
 
 // Each title's ownership check is a live, targeted Plex/Silo search (the same one GET
-// /api/match uses) - never a full-library scan. The Popular shelves are small (10 movies
-// + 10 shows), and this whole batch is wrapped in the same cache as the TMDB list itself,
-// so it runs at most once per cache window no matter how many people load the page. A
-// small concurrency cap just keeps that one-time batch from bursting all 20 lookups at
-// once against Plex/Silo.
+// /api/match uses) - never a full-library scan. The Popular shelves hold 25 movies + 25
+// shows, and this whole batch is wrapped in the same cache as the TMDB list itself, so it
+// runs at most once per cache window no matter how many people load the page. A small
+// concurrency cap just keeps that one-time batch from bursting all 50 lookups at once
+// against Plex/Silo.
 const MATCH_CONCURRENCY = 4;
 
 async function attachOwnership(items: PopularItem[]): Promise<void> {
