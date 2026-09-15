@@ -33,9 +33,16 @@ Open http://localhost:5173 — on first run you'll land on **Settings**:
 - **Xtream Codes** — log in with the server URL + username + password your IPTV provider gave you.
 - **TMDB** (optional) — paste an API Read Access Token (free at themoviedb.org/settings/api)
   to power the Popular Movies/Shows shelves on On Demand.
+- **Trakt** (optional) — register a free API app at trakt.tv/oauth/applications (redirect URI
+  `urn:ietf:wg:oauth:2.0:oob`), paste its Client ID + Secret, then click "Link Trakt Account"
+  to authorize via Trakt's device-code flow (a short code you enter at trakt.tv/activate).
+  Adds Trakt ratings/reviews to the detail page, plus "Your Trakt Watchlist" and "Recommended
+  for You" shelves on On Demand.
 
 Credentials are validated live against each service before being saved, and stored in
-`server/data/settings.json` (gitignored) — not in `.env`, not committed anywhere.
+`server/data/settings.json` (gitignored) — not in `.env`, not committed anywhere. Each
+service also has a "Test Connection" button in Settings that re-runs its login check
+against whatever is currently saved.
 
 ## Verify the API directly
 
@@ -70,6 +77,6 @@ Builds `web/dist` and serves it from the same Fastify process as the API.
     No confirmed catalog pagination, so (like Plex) only the first bounded page is shown.
     Silo's stream endpoint doesn't support Range requests, so seeking is limited to what
     the browser can do with an already-buffered progressive download.
-  - On Demand search only covers each source's cached "popular" page, not the full
-    library — see the note in `server/src/routes/ondemand.ts` for why.
-- No merged watch-progress sync, no native apps — deferred.
+- On Demand search is a live, targeted title search against Plex and Silo directly (not a
+  full library scan) — see `server/src/library.ts`.
+- Trakt watch-progress sync (scrobbling) and native apps are not implemented — deferred.
