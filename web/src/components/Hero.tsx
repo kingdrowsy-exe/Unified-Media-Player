@@ -78,13 +78,20 @@ export default function Hero({ items, intervalMs = 7000 }: HeroProps) {
         <div className="hero-eyebrow">Popular Now</div>
         <div className="hero-title">{current.title}</div>
         {current.subtitle && <div className="hero-subtitle">{current.subtitle}</div>}
-        {current.owned ? (
-          <button className="hero-play" onClick={current.onPlay}>
-            ▶ Play
-          </button>
-        ) : (
-          <div className="hero-unowned">Not in your library</div>
-        )}
+        <div className="hero-actions">
+          {current.owned ? (
+            <button className="hero-play" onClick={current.onPlay}>
+              ▶ Play
+            </button>
+          ) : (
+            <>
+              <button className="hero-play hero-play-secondary" onClick={current.onPlay}>
+                Details
+              </button>
+              <span className="hero-unowned">Not in your library</span>
+            </>
+          )}
+        </div>
       </div>
 
       {items.length > 1 && (

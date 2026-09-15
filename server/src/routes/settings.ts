@@ -74,6 +74,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     settingsStore.setSilo({ baseUrl: cleanBaseUrl, username, password });
     resetSiloSession();
     bustCache("ondemand:");
+    bustCache("popular:");
     return { ok: true };
   });
 
@@ -81,6 +82,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     settingsStore.clearSilo();
     resetSiloSession();
     bustCache("ondemand:");
+    bustCache("popular:");
     return { ok: true };
   });
 
@@ -133,6 +135,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       settingsStore.setPlex(server);
       pendingPin = null;
       bustCache("ondemand:");
+      bustCache("popular:");
       return { linked: true, serverName: server.serverName };
     } catch (err) {
       return reply.code(400).send({ error: (err as Error).message });
@@ -142,6 +145,7 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.delete("/api/settings/plex", async () => {
     settingsStore.clearPlex();
     bustCache("ondemand:");
+    bustCache("popular:");
     return { ok: true };
   });
 

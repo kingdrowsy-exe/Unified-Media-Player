@@ -18,16 +18,56 @@ export interface PopularItem {
   sources: { source: "plex" | "silo"; id: string }[];
 }
 
+function toPopularItem(t: TmdbItem): PopularItem {
+  return {
+    id: `tmdb:${t.type}:${t.id}`,
+    title: t.title,
+    year: t.year,
+    type: t.type,
+    poster: t.poster,
+    backdrop: t.backdrop,
+    genre: t.genre,
+    ratingPercent: t.ratingPercent,
+    sources: [],
+  };
+}
+
+// Each title's ownership check is a live, targeted Plex/Silo search (the same one GET
+// /api/match uses) - never a full-library scan. The Popular shelves are small (10 movies
+// + 10 shows), and this whole batch is wrapped in the same cache as the TMDB list itself,
+// so it runs at most once per cache window no matter how many people load the page. A
+// small concurrency cap just keeps that one-time batch from bursting all 20 lookups at
+// once against Plex/Silo.
+const MATCH_CONCURRENCY = 4;
+
+async function attachOwnership(items: PopularItem[]): Promise<void> {
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const item = items[next++];
+      try {
+        const { merged } = await searchOwnedLibrary(item.title);
+        const targetKey = matchKey(item.title, item.year);
+        const match = merged.find((m) => matchKey(m.title, m.year) === targetKey);
+        if (match) item.sources = match.sources;
+      } catch {
+        // Leave unmatched on any lookup failure - the tile just shows as not-in-library.
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: MATCH_CONCURRENCY }, worker));
+}
+
 export async function popularRoutes(app: FastifyInstance) {
   app.get("/api/popular", async () => {
-    let tmdb: { movies: TmdbItem[]; shows: TmdbItem[] };
     try {
-      tmdb = await cached("popular:tmdb", config.cacheTtlSeconds, async () => {
+      return await cached("popular:full", config.cacheTtlSeconds, async () => {
         // Sequential, not Promise.all - keeps requests to TMDB spaced out one at a time
         // rather than bursting, even though this only ever runs once per cache window.
-        const movies = await getPopularMovies();
-        const shows = await getPopularShows();
-        return { movies, shows };
+        const movies = (await getPopularMovies()).map(toPopularItem);
+        const shows = (await getPopularShows()).map(toPopularItem);
+        await Promise.all([attachOwnership(movies), attachOwnership(shows)]);
+        return { movies, shows, configured: true };
       });
     } catch (err) {
       if (err instanceof NotConfiguredError) {
@@ -35,30 +75,6 @@ export async function popularRoutes(app: FastifyInstance) {
       }
       throw err;
     }
-
-    // Whether a TMDB popular title is actually in your library is deliberately NOT
-    // precomputed here: checking all ~48 shown titles against Plex/Silo would mean that
-    // many live queries every cache refresh, and checking only the small cached "popular"
-    // page (like an earlier version of this route did) gave wrong "not in library" answers
-    // for things you actually own. Ownership is instead checked live, once, when you
-    // actually click a title - see GET /api/match.
-    const toPopularItem = (t: TmdbItem): PopularItem => ({
-      id: `tmdb:${t.type}:${t.id}`,
-      title: t.title,
-      year: t.year,
-      type: t.type,
-      poster: t.poster,
-      backdrop: t.backdrop,
-      genre: t.genre,
-      ratingPercent: t.ratingPercent,
-      sources: [],
-    });
-
-    return {
-      movies: tmdb.movies.map(toPopularItem),
-      shows: tmdb.shows.map(toPopularItem),
-      configured: true,
-    };
   });
 
   app.get("/api/match", async (request) => {
