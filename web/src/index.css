@@ -1603,8 +1603,13 @@ button.secondary {
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: var(--bg);
   overflow: hidden;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 900px 620px at 12% -8%, rgba(139, 92, 246, 0.18), transparent 60%),
+    radial-gradient(ellipse 900px 700px at 92% 8%, rgba(10, 132, 255, 0.13), transparent 60%),
+    radial-gradient(ellipse 1100px 800px at 50% 105%, rgba(45, 212, 191, 0.07), transparent 65%);
+  background-repeat: no-repeat;
 }
 
 .detail-scroll {
