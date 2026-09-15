@@ -25,10 +25,10 @@ export interface SourceVersion {
 function formatResolution(res?: string): string | undefined {
   if (!res) return undefined;
   const lower = res.toLowerCase();
-  if (lower === "4k" || lower === "2160") return "4K";
-  if (lower === "1080") return "1080p";
-  if (lower === "720") return "720p";
-  if (lower === "480") return "480p";
+  if (lower === "4k" || lower === "2160" || lower === "2160p" || lower === "2160i" || lower === "uhd") return "4K";
+  if (lower === "1080" || lower === "1080p" || lower === "1080i") return "1080p";
+  if (lower === "720" || lower === "720p") return "720p";
+  if (lower === "480" || lower === "480p") return "480p";
   return res;
 }
 
