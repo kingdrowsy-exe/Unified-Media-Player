@@ -1045,46 +1045,310 @@ a {
 
 /* ---------- Player (On Demand overlay) ---------- */
 
-.player-overlay {
+.vplayer {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.92);
+  background: #000;
+  z-index: 100;
+  overflow: hidden;
+  cursor: default;
+}
+
+.vplayer-controls-hidden {
+  cursor: none;
+}
+
+.vplayer-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  display: block;
+}
+
+.vplayer-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  padding: 24px;
+  pointer-events: none;
+  animation: vplayer-flash-fade 0.5s ease forwards;
+  z-index: 3;
 }
 
-.player-overlay video {
-  width: 100%;
-  max-width: 1100px;
-  max-height: 80vh;
-  background: black;
-  border-radius: 8px;
+@keyframes vplayer-flash-fade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
 }
 
-.player-status {
-  margin-top: 12px;
+.vplayer-spinner-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.vplayer-spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  animation: vplayer-spin 0.8s linear infinite;
+}
+
+@keyframes vplayer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vplayer-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  text-align: center;
+  max-width: 460px;
+  padding: 0 24px;
+}
+
+.vplayer-error-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.vplayer-error-message {
   color: var(--text-muted);
   font-size: 14px;
+  margin-bottom: 20px;
 }
 
-.player-status-error {
-  color: #ff6961;
-  max-width: 600px;
-  text-align: center;
-}
-
-.player-close {
-  margin-top: 16px;
-  padding: 8px 20px;
-  border-radius: 8px;
+.vplayer-error-close {
+  background: rgba(255, 255, 255, 0.12);
   border: 1px solid var(--border);
-  background: var(--bg-elevated);
   color: var(--text);
+  padding: 8px 22px;
+  border-radius: 10px;
   cursor: pointer;
+}
+
+.vplayer-top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 28px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75) 0%, transparent 100%);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.vplayer-controls-hidden .vplayer-top-bar {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+.vplayer-back {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.vplayer-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.vplayer-top-text {
+  min-width: 0;
+}
+
+.vplayer-top-title {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vplayer-top-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vplayer-bottom-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  padding: 0 28px 20px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 60%, transparent 100%);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.vplayer-controls-hidden .vplayer-bottom-bar {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.player-progress-track {
+  position: relative;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.player-progress-track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.player-progress-buffered {
+  position: absolute;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.player-progress-fill {
+  position: absolute;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent-gradient);
+  pointer-events: none;
+}
+
+.player-progress-knob {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateX(-50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  transition: transform 0.1s ease;
+}
+
+.player-progress-track:hover .player-progress-knob {
+  transform: translateX(-50%) scale(1.15);
+}
+
+.vplayer-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.vplayer-controls-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vplayer-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.vplayer-time {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-left: 10px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.vplayer-time-sep {
+  color: var(--text-muted);
+  margin: 0 2px;
+}
+
+.vplayer-volume-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vplayer-volume-slider {
+  width: 90px;
+}
+
+@media (max-width: 640px) {
+  .vplayer-top-bar {
+    padding: 16px;
+  }
+
+  .vplayer-bottom-bar {
+    padding: 0 12px 14px;
+  }
+
+  .vplayer-volume-group .vplayer-volume-slider {
+    display: none;
+  }
+
+  .vplayer-controls-left {
+    gap: 2px;
+  }
+
+  .vplayer-time {
+    font-size: 11px;
+    margin-left: 4px;
+  }
 }
 
 /* ---------- Settings ---------- */
